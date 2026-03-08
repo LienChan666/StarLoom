@@ -1,0 +1,11 @@
+﻿{
+    "Author":  "YLC",
+    "Name":  "Starloom",
+    "Punchline":  "Automation companion for FFXIV.",
+    "Description":  "Handles collectable turn-ins, scrip purchases, and other post-craft automation.",
+    "InternalName":  "Starloom",
+    "AssemblyVersion":  "0.1.0.0",
+    "RepoUrl":  "",
+    "ApplicableVersion":  "any",
+    "DalamudApiLevel":  14
+}
