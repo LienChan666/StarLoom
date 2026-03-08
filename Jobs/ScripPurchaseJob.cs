@@ -1,14 +1,14 @@
 ﻿using FFXIVClientStructs.FFXIV.Component.GUI;
-using Starloom.Addons;
-using Starloom.Core;
-using Starloom.Data;
-using Starloom.Services;
+using StarLoom.Addons;
+using StarLoom.Core;
+using StarLoom.Data;
+using StarLoom.Services;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using static ECommons.GenericHelpers;
 
-namespace Starloom.Jobs;
+namespace StarLoom.Jobs;
 
 public sealed unsafe class ScripPurchaseJob : IAutomationJob
 {
