@@ -41,7 +41,7 @@ internal sealed class SelectedItemsPane
         {
             ImGui.TableSetupColumn("名称", ImGuiTableColumnFlags.WidthStretch, 0.34f);
             ImGui.TableSetupColumn("工票", ImGuiTableColumnFlags.WidthStretch, 0.18f);
-            ImGui.TableSetupColumn("成本", ImGuiTableColumnFlags.WidthFixed, 60f);
+            ImGui.TableSetupColumn("单价", ImGuiTableColumnFlags.WidthFixed, 60f);
             ImGui.TableSetupColumn("目标数量", ImGuiTableColumnFlags.WidthFixed, 100f);
             ImGui.TableSetupColumn("排序", ImGuiTableColumnFlags.WidthFixed, 78f);
             ImGui.TableSetupColumn("操作", ImGuiTableColumnFlags.WidthFixed, 64f);
@@ -86,7 +86,7 @@ internal sealed class SelectedItemsPane
                 ImGui.EndDisabled();
 
                 ImGui.TableSetColumnIndex(5);
-                if (ImGui.SmallButton("删除"))
+                if (ImGui.SmallButton("×"))
                     removeIndex = index;
 
                 ImGui.PopID();

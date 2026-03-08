@@ -63,7 +63,7 @@ internal sealed class SearchPane
 
             ImGui.TableSetupColumn("名称", ImGuiTableColumnFlags.WidthStretch, 0.50f);
             ImGui.TableSetupColumn("工票", ImGuiTableColumnFlags.WidthStretch, 0.22f);
-            ImGui.TableSetupColumn("成本", ImGuiTableColumnFlags.WidthFixed, 70f);
+            ImGui.TableSetupColumn("单价", ImGuiTableColumnFlags.WidthFixed, 70f);
             ImGui.TableSetupColumn("操作", ImGuiTableColumnFlags.WidthFixed, 64f);
             ImGui.TableHeadersRow();
 
@@ -85,7 +85,7 @@ internal sealed class SearchPane
 
             ImGui.TableSetColumnIndex(3);
             ImGui.BeginDisabled(alreadyAdded);
-            if (ImGui.SmallButton("加入"))
+            if (ImGui.SmallButton("+"))
                 AddPurchaseItem(item);
             ImGui.EndDisabled();
 
