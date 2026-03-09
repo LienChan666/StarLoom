@@ -2,14 +2,14 @@ using ECommons.DalamudServices;
 using FFXIVClientStructs.FFXIV.Client.Game;
 using Lumina.Excel;
 using Lumina.Excel.Sheets;
-using StarLoom.Data;
+using Starloom.Data;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Security.Cryptography;
 using System.Text;
 
-namespace StarLoom.Services;
+namespace Starloom.Services;
 
 public sealed unsafe class ScripShopCatalogBuilder
 {
@@ -21,16 +21,18 @@ public sealed unsafe class ScripShopCatalogBuilder
         var inclusionShopSeriesSheet = Svc.Data.GetSubrowExcelSheet<InclusionShopSeries>();
         var itemSheet = Svc.Data.GetExcelSheet<Item>();
 
-        if (inclusionShopSheet is null)
-            throw new InvalidOperationException("Failed to read the InclusionShop sheet.");
-        if (inclusionShopSeriesSheet is null)
-            throw new InvalidOperationException("Failed to read the InclusionShopSeries sheet.");
-        if (itemSheet is null)
-            throw new InvalidOperationException("Failed to read the Item sheet.");
+        if (inclusionShopSheet is null || inclusionShopSeriesSheet is null || itemSheet is null)
+        {
+            Svc.Log.Error("Failed to read required game data sheets for catalog version.");
+            return string.Empty;
+        }
 
         var shop = inclusionShopSheet.GetRow(ScripInclusionShopId);
         if (shop.RowId == 0)
-            throw new InvalidOperationException($"Failed to find InclusionShop row {ScripInclusionShopId}.");
+        {
+            Svc.Log.Error($"Failed to find InclusionShop row {ScripInclusionShopId}.");
+            return string.Empty;
+        }
 
         var seriesLookup = inclusionShopSeriesSheet
             .SelectMany(group => group)
@@ -130,16 +132,18 @@ public sealed unsafe class ScripShopCatalogBuilder
         var inclusionShopSeriesSheet = Svc.Data.GetSubrowExcelSheet<InclusionShopSeries>();
         var itemSheet = Svc.Data.GetExcelSheet<Item>();
 
-        if (inclusionShopSheet is null)
-            throw new InvalidOperationException("Failed to read the InclusionShop sheet.");
-        if (inclusionShopSeriesSheet is null)
-            throw new InvalidOperationException("Failed to read the InclusionShopSeries sheet.");
-        if (itemSheet is null)
-            throw new InvalidOperationException("Failed to read the Item sheet.");
+        if (inclusionShopSheet is null || inclusionShopSeriesSheet is null || itemSheet is null)
+        {
+            Svc.Log.Error("Failed to read required game data sheets for catalog build.");
+            return [];
+        }
 
         var shop = inclusionShopSheet.GetRow(ScripInclusionShopId);
         if (shop.RowId == 0)
-            throw new InvalidOperationException($"Failed to find InclusionShop row {ScripInclusionShopId}.");
+        {
+            Svc.Log.Error($"Failed to find InclusionShop row {ScripInclusionShopId}.");
+            return [];
+        }
 
         var seriesLookup = inclusionShopSeriesSheet
             .SelectMany(group => group)

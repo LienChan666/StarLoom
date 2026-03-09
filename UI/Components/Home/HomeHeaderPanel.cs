@@ -1,19 +1,12 @@
-﻿using Dalamud.Bindings.ImGui;
-using StarLoom.UI;
-using StarLoom.UI.Components.Shared;
+using Dalamud.Bindings.ImGui;
+using Starloom.Automation;
+using Starloom.UI.Components.Shared;
 using System.Numerics;
 
-namespace StarLoom.UI.Components.Home;
+namespace Starloom.UI.Components.Home;
 
 internal sealed class HomeHeaderPanel
 {
-    private readonly IPluginUiFacade _ui;
-
-    public HomeHeaderPanel(IPluginUiFacade ui)
-    {
-        _ui = ui;
-    }
-
     public void Draw(Vector2 size)
     {
         using var _ = GamePanelStyle.BeginPanel("##HomeHeaderPanel", size, GamePanelStyle.BorderAccent, GamePanelStyle.Accent);
@@ -32,24 +25,32 @@ internal sealed class HomeHeaderPanel
         ImGui.EndTable();
     }
 
-    private void DrawSummary()
+    private static void DrawSummary()
     {
         ImGui.SetWindowFontScale(1.3f);
         ImGui.PushStyleColor(ImGuiCol.Text, GamePanelStyle.Accent);
-        ImGui.TextUnformatted(_ui.GetText("home.header.title"));
+        ImGui.TextUnformatted(P.Localization.Get("home.header.title"));
         ImGui.PopStyleColor();
         ImGui.SetWindowFontScale(1.0f);
 
-        ImGui.TextUnformatted(_ui.GetText("home.header.subtitle"));
-        GamePanelStyle.DrawHint(_ui.GetText("home.header.hint"));
+        ImGui.TextUnformatted(P.Localization.Get("home.header.subtitle"));
+        GamePanelStyle.DrawHint(P.Localization.Get("home.header.hint"));
     }
 
-    private void DrawBadges()
+    private static void DrawBadges()
     {
-        var stateColor = _ui.IsAutomationBusy ? GamePanelStyle.Gold : GamePanelStyle.Success;
-        GamePanelStyle.DrawPillBadge(_ui.GetText("home.header.badge.total_state", _ui.GetOrchestratorStateText()), stateColor);
+        var stateColor = P.Automation.IsBusy ? GamePanelStyle.Gold : GamePanelStyle.Success;
+        GamePanelStyle.DrawPillBadge(P.Localization.Format("home.header.badge.total_state", GetOrchestratorStateText()), stateColor);
         ImGui.SameLine(0f, GamePanelStyle.Spacing.Sm);
-        GamePanelStyle.DrawPillBadge(_ui.GetText("home.header.badge.current_list", _ui.Config.ArtisanListId), GamePanelStyle.AccentSoft);
+        GamePanelStyle.DrawPillBadge(P.Localization.Format("home.header.badge.current_list", C.ArtisanListId), GamePanelStyle.AccentSoft);
+    }
+
+    private static string GetOrchestratorStateText()
+    {
+        if (P.Session.State != ArtisanSessionState.Idle)
+            return P.Localization.Get(P.Session.GetStateKey());
+
+        var key = P.TM.IsBusy ? "state.orchestrator.running" : "state.orchestrator.idle";
+        return P.Localization.Get(key);
     }
 }
-

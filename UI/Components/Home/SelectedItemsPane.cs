@@ -1,33 +1,25 @@
-﻿using Dalamud.Bindings.ImGui;
-using StarLoom.UI;
-using StarLoom.UI.Components.Shared;
+using Dalamud.Bindings.ImGui;
+using Starloom.UI.Components.Shared;
 using System;
 using System.Linq;
 using System.Numerics;
 
-namespace StarLoom.UI.Components.Home;
+namespace Starloom.UI.Components.Home;
 
 internal sealed class SelectedItemsPane
 {
-    private readonly IPluginUiFacade _ui;
-
-    public SelectedItemsPane(IPluginUiFacade ui)
-    {
-        _ui = ui;
-    }
-
     public void Draw(Vector2 size)
     {
         using var _ = GamePanelStyle.BeginPanel("##SelectedPane", size, GamePanelStyle.BorderSubtle);
 
-        var totalQuantity = _ui.Config.ScripShopItems.Sum(item => item.Quantity);
+        var totalQuantity = C.ScripShopItems.Sum(item => item.Quantity);
         GamePanelStyle.DrawPanelHeader(
-            _ui.GetText("home.selected.title"),
-            _ui.GetText("home.selected.description", _ui.Config.ScripShopItems.Count, totalQuantity));
+            P.Localization.Get("home.selected.title"),
+            P.Localization.Format("home.selected.description", C.ScripShopItems.Count, totalQuantity));
 
-        if (_ui.Config.ScripShopItems.Count == 0)
+        if (C.ScripShopItems.Count == 0)
         {
-            GamePanelStyle.DrawHint(_ui.GetText("home.selected.empty_hint"));
+            GamePanelStyle.DrawHint(P.Localization.Get("home.selected.empty_hint"));
             return;
         }
 
@@ -44,17 +36,17 @@ internal sealed class SelectedItemsPane
 
         if (ImGui.BeginTable("##SelectedTable", 6, tableFlags))
         {
-            ImGui.TableSetupColumn(_ui.GetText("home.selected.table.name"), ImGuiTableColumnFlags.WidthStretch, 0.34f);
-            ImGui.TableSetupColumn(_ui.GetText("home.selected.table.currency"), ImGuiTableColumnFlags.WidthStretch, 0.18f);
-            ImGui.TableSetupColumn(_ui.GetText("home.selected.table.cost"), ImGuiTableColumnFlags.WidthFixed, 60f);
-            ImGui.TableSetupColumn(_ui.GetText("home.selected.table.quantity"), ImGuiTableColumnFlags.WidthFixed, 100f);
-            ImGui.TableSetupColumn(_ui.GetText("home.selected.table.order"), ImGuiTableColumnFlags.WidthFixed, 78f);
-            ImGui.TableSetupColumn(_ui.GetText("home.selected.table.action"), ImGuiTableColumnFlags.WidthFixed, 64f);
+            ImGui.TableSetupColumn(P.Localization.Get("home.selected.table.name"), ImGuiTableColumnFlags.WidthStretch, 0.34f);
+            ImGui.TableSetupColumn(P.Localization.Get("home.selected.table.currency"), ImGuiTableColumnFlags.WidthStretch, 0.18f);
+            ImGui.TableSetupColumn(P.Localization.Get("home.selected.table.cost"), ImGuiTableColumnFlags.WidthFixed, 60f);
+            ImGui.TableSetupColumn(P.Localization.Get("home.selected.table.quantity"), ImGuiTableColumnFlags.WidthFixed, 100f);
+            ImGui.TableSetupColumn(P.Localization.Get("home.selected.table.order"), ImGuiTableColumnFlags.WidthFixed, 78f);
+            ImGui.TableSetupColumn(P.Localization.Get("home.selected.table.action"), ImGuiTableColumnFlags.WidthFixed, 64f);
             ImGui.TableHeadersRow();
 
-            for (var index = 0; index < _ui.Config.ScripShopItems.Count; index++)
+            for (var index = 0; index < C.ScripShopItems.Count; index++)
             {
-                var item = _ui.Config.ScripShopItems[index];
+                var item = C.ScripShopItems[index];
                 ImGui.PushID((int)item.Item.ItemId);
 
                 ImGui.TableNextRow();
@@ -63,7 +55,7 @@ internal sealed class SelectedItemsPane
                 ImGui.TextUnformatted(item.Name);
 
                 ImGui.TableSetColumnIndex(1);
-            ScripShopUiHelpers.DrawCurrencyLabel(_ui, item.Item);
+                ScripShopUiHelpers.DrawCurrencyLabel(item.Item);
 
                 ImGui.TableSetColumnIndex(2);
                 ImGui.TextUnformatted(item.Item.ItemCost.ToString());
@@ -75,7 +67,7 @@ internal sealed class SelectedItemsPane
                     item.Quantity = Math.Max(1, quantity);
 
                 if (ImGui.IsItemDeactivatedAfterEdit())
-                    _ui.SaveConfig();
+                    P.ConfigStore.Save();
 
                 ImGui.TableSetColumnIndex(4);
                 ImGui.PushStyleColor(ImGuiCol.Text, GamePanelStyle.TextSecond);
@@ -85,7 +77,7 @@ internal sealed class SelectedItemsPane
                 ImGui.EndDisabled();
 
                 ImGui.SameLine();
-                ImGui.BeginDisabled(index == _ui.Config.ScripShopItems.Count - 1);
+                ImGui.BeginDisabled(index == C.ScripShopItems.Count - 1);
                 if (ImGui.SmallButton("↓##MoveDown"))
                     moveDownIndex = index;
                 ImGui.EndDisabled();
@@ -109,27 +101,26 @@ internal sealed class SelectedItemsPane
 
         if (removeIndex.HasValue)
         {
-            _ui.Config.ScripShopItems.RemoveAt(removeIndex.Value);
-            _ui.SaveConfig();
+            C.ScripShopItems.RemoveAt(removeIndex.Value);
+            P.ConfigStore.Save();
         }
 
         if (moveUpIndex.HasValue)
         {
             SwapItems(moveUpIndex.Value, moveUpIndex.Value - 1);
-            _ui.SaveConfig();
+            P.ConfigStore.Save();
         }
 
         if (moveDownIndex.HasValue)
         {
             SwapItems(moveDownIndex.Value, moveDownIndex.Value + 1);
-            _ui.SaveConfig();
+            P.ConfigStore.Save();
         }
     }
 
-    private void SwapItems(int firstIndex, int secondIndex)
+    private static void SwapItems(int firstIndex, int secondIndex)
     {
-        var list = _ui.Config.ScripShopItems;
+        var list = C.ScripShopItems;
         (list[firstIndex], list[secondIndex]) = (list[secondIndex], list[firstIndex]);
     }
 }
-

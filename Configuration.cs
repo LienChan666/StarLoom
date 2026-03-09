@@ -1,9 +1,9 @@
 using Dalamud.Configuration;
-using StarLoom.Data;
+using Starloom.Data;
 using System;
 using System.Collections.Generic;
 
-namespace StarLoom;
+namespace Starloom;
 
 [Serializable]
 public class Configuration : IPluginConfiguration

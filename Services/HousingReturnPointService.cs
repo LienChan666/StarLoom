@@ -6,14 +6,14 @@ using ECommons.ExcelServices.TerritoryEnumeration;
 using FFXIVClientStructs.FFXIV.Client.Game;
 using FFXIVClientStructs.FFXIV.Client.Game.UI;
 using Lumina.Excel.Sheets;
-using StarLoom.Data;
-using StarLoom.IPC;
+using Starloom.Data;
+using Starloom.GameInterop.IPC;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Numerics;
 
-namespace StarLoom.Services;
+namespace Starloom.Services;
 
 public static unsafe class HousingReturnPointService
 {
@@ -96,10 +96,10 @@ public static unsafe class HousingReturnPointService
     {
         if (point.IsInn)
         {
-            if (!LifestreamIPC.IsAvailable())
+            if (!LifestreamIpc.IsAvailable())
                 return false;
 
-            LifestreamIPC.EnqueueInnShortcut();
+            LifestreamIpc.EnqueueInnShortcut();
             return true;
         }
 

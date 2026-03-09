@@ -1,90 +1,81 @@
-﻿using Dalamud.Bindings.ImGui;
-using StarLoom.Data;
-using StarLoom.UI;
-using StarLoom.UI.Components.Shared;
+using Dalamud.Bindings.ImGui;
+using Starloom.Data;
+using Starloom.UI.Components.Shared;
 using System;
 
-namespace StarLoom.UI.Components.Settings;
+namespace Starloom.UI.Components.Settings;
 
 internal sealed class PurchaseSettingsCard
 {
-    private readonly IPluginUiFacade _ui;
-
-    public PurchaseSettingsCard(IPluginUiFacade ui)
-    {
-        _ui = ui;
-    }
-
     public void Draw()
     {
         if (!GamePanelStyle.BeginSettingsTable("##PurchaseSettingsTable"))
             return;
 
-        var buyAfterEachTurnIn = _ui.Config.BuyAfterEachTurnIn;
+        var buyAfterEachTurnIn = C.BuyAfterEachTurnIn;
         ImGui.TableNextRow();
         ImGui.TableSetColumnIndex(0);
-        GamePanelStyle.DrawSettingLabel(_ui.GetText("settings.purchase.auto_buy"));
+        GamePanelStyle.DrawSettingLabel(P.Localization.Get("settings.purchase.auto_buy"));
         ImGui.TableSetColumnIndex(1);
-        if (ImGui.Checkbox($"{_ui.GetText("settings.purchase.auto_buy_toggle")}##BuyAfterEachTurnIn", ref buyAfterEachTurnIn))
+        if (ImGui.Checkbox($"{P.Localization.Get("settings.purchase.auto_buy_toggle")}##BuyAfterEachTurnIn", ref buyAfterEachTurnIn))
         {
-            _ui.Config.BuyAfterEachTurnIn = buyAfterEachTurnIn;
-            _ui.SaveConfig();
+            C.BuyAfterEachTurnIn = buyAfterEachTurnIn;
+            P.ConfigStore.Save();
         }
 
-        var postPurchaseAction = _ui.Config.PostPurchaseAction;
-        var actionPreview = _ui.GetText(postPurchaseAction == PurchaseCompletionAction.CloseGame
+        var postPurchaseAction = C.PostPurchaseAction;
+        var actionPreview = P.Localization.Get(postPurchaseAction == PurchaseCompletionAction.CloseGame
             ? "settings.purchase.action.close_game"
             : "settings.purchase.action.return_point");
 
         ImGui.TableNextRow();
         ImGui.TableSetColumnIndex(0);
-        GamePanelStyle.DrawSettingLabel(_ui.GetText("settings.purchase.action"));
+        GamePanelStyle.DrawSettingLabel(P.Localization.Get("settings.purchase.action"));
         ImGui.TableSetColumnIndex(1);
         ImGui.SetNextItemWidth(Math.Min(220f, ImGui.GetContentRegionAvail().X));
         if (ImGui.BeginCombo("##PostPurchaseAction", actionPreview))
         {
-            if (ImGui.Selectable($"{_ui.GetText("settings.purchase.action.return_point")}##PostPurchaseReturnPoint", postPurchaseAction == PurchaseCompletionAction.ReturnToConfiguredPoint))
+            if (ImGui.Selectable($"{P.Localization.Get("settings.purchase.action.return_point")}##PostPurchaseReturnPoint", postPurchaseAction == PurchaseCompletionAction.ReturnToConfiguredPoint))
             {
-                _ui.Config.PostPurchaseAction = PurchaseCompletionAction.ReturnToConfiguredPoint;
-                _ui.SaveConfig();
+                C.PostPurchaseAction = PurchaseCompletionAction.ReturnToConfiguredPoint;
+                P.ConfigStore.Save();
             }
 
-            if (ImGui.Selectable($"{_ui.GetText("settings.purchase.action.close_game")}##PostPurchaseCloseGame", postPurchaseAction == PurchaseCompletionAction.CloseGame))
+            if (ImGui.Selectable($"{P.Localization.Get("settings.purchase.action.close_game")}##PostPurchaseCloseGame", postPurchaseAction == PurchaseCompletionAction.CloseGame))
             {
-                _ui.Config.PostPurchaseAction = PurchaseCompletionAction.CloseGame;
-                _ui.SaveConfig();
+                C.PostPurchaseAction = PurchaseCompletionAction.CloseGame;
+                P.ConfigStore.Save();
             }
 
             ImGui.EndCombo();
         }
 
-        var reserveScripAmount = _ui.Config.ReserveScripAmount;
+        var reserveScripAmount = C.ReserveScripAmount;
         var previousReserveScripAmount = reserveScripAmount;
         ImGui.TableNextRow();
         ImGui.TableSetColumnIndex(0);
-        GamePanelStyle.DrawSettingLabel(_ui.GetText("settings.purchase.reserve"));
+        GamePanelStyle.DrawSettingLabel(P.Localization.Get("settings.purchase.reserve"));
         ImGui.TableSetColumnIndex(1);
         ImGui.SetNextItemWidth(Math.Min(160f, ImGui.GetContentRegionAvail().X));
         if (ImGui.InputInt("##ReserveScripAmount", ref reserveScripAmount, 0, 0))
-            _ui.Config.ReserveScripAmount = Math.Max(0, reserveScripAmount);
+            C.ReserveScripAmount = Math.Max(0, reserveScripAmount);
 
-        if (ImGui.IsItemDeactivatedAfterEdit() && _ui.Config.ReserveScripAmount != previousReserveScripAmount)
-            _ui.SaveConfig();
+        if (ImGui.IsItemDeactivatedAfterEdit() && C.ReserveScripAmount != previousReserveScripAmount)
+            P.ConfigStore.Save();
 
-        var freeSlotThreshold = _ui.Config.FreeSlotThreshold;
+        var freeSlotThreshold = C.FreeSlotThreshold;
         var previousFreeSlotThreshold = freeSlotThreshold;
         ImGui.TableNextRow();
         ImGui.TableSetColumnIndex(0);
-        GamePanelStyle.DrawSettingLabel(_ui.GetText("settings.purchase.free_slots"));
+        GamePanelStyle.DrawSettingLabel(P.Localization.Get("settings.purchase.free_slots"));
         ImGui.TableSetColumnIndex(1);
         ImGui.SetNextItemWidth(Math.Min(160f, ImGui.GetContentRegionAvail().X));
         if (ImGui.InputInt("##FreeSlotThreshold", ref freeSlotThreshold, 0, 0))
-            _ui.Config.FreeSlotThreshold = Math.Max(0, freeSlotThreshold);
+            C.FreeSlotThreshold = Math.Max(0, freeSlotThreshold);
 
-        if (ImGui.IsItemDeactivatedAfterEdit() && _ui.Config.FreeSlotThreshold != previousFreeSlotThreshold)
-            _ui.SaveConfig();
+        if (ImGui.IsItemDeactivatedAfterEdit() && C.FreeSlotThreshold != previousFreeSlotThreshold)
+            P.ConfigStore.Save();
 
         ImGui.EndTable();
     }
 }
-

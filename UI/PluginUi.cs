@@ -1,67 +1,43 @@
-﻿using Dalamud.Interface.Windowing;
-using ECommons.DalamudServices;
+using Dalamud.Interface.Windowing;
 using System;
 
-namespace StarLoom.UI;
+namespace Starloom.UI;
 
 public sealed class PluginUi : IDisposable
 {
-    private readonly IPluginUiFacade _ui;
-    private readonly WindowSystem _windowSystem;
-    private readonly MainWindow _mainWindow;
-    private readonly StatusOverlay _statusOverlay;
+    private readonly WindowSystem windowSystem;
+    private readonly MainWindow mainWindow;
+    private readonly StatusOverlay statusOverlay;
 
-    public bool IsStatusOverlayVisible => _statusOverlay.IsOpen;
-
-    public PluginUi(IPluginUiFacade ui)
+    public PluginUi()
     {
-        _ui = ui;
-        _windowSystem = new WindowSystem("Starloom");
-        _mainWindow = new MainWindow(ui);
-        _statusOverlay = new StatusOverlay(ui)
-        {
-            IsOpen = ui.Config.ShowStatusOverlay,
-        };
+        windowSystem = new WindowSystem("Starloom");
+        mainWindow = new MainWindow();
+        statusOverlay = new StatusOverlay { IsOpen = C.ShowStatusOverlay };
 
-        _windowSystem.AddWindow(_mainWindow);
-        _windowSystem.AddWindow(_statusOverlay);
+        windowSystem.AddWindow(mainWindow);
+        windowSystem.AddWindow(statusOverlay);
 
         Svc.PluginInterface.UiBuilder.Draw += Draw;
         Svc.PluginInterface.UiBuilder.OpenConfigUi += OpenMainWindow;
         Svc.PluginInterface.UiBuilder.OpenMainUi += OpenMainWindow;
     }
 
-    public void OpenMainWindow()
-        => _mainWindow.IsOpen = true;
-
-    public void ToggleMainWindow()
-        => _mainWindow.IsOpen = !_mainWindow.IsOpen;
-
-    public void ToggleStatusOverlay()
-        => SetStatusOverlayVisible(!_statusOverlay.IsOpen);
-
-    public void SetStatusOverlayVisible(bool isVisible)
-    {
-        _statusOverlay.IsOpen = isVisible;
-        if (_ui.Config.ShowStatusOverlay == isVisible)
-            return;
-
-        _ui.Config.ShowStatusOverlay = isVisible;
-        _ui.SaveConfig();
-    }
+    public void OpenMainWindow() => mainWindow.IsOpen = true;
+    public void ToggleMainWindow() => mainWindow.IsOpen = !mainWindow.IsOpen;
 
     private void Draw()
     {
-        if (_statusOverlay.IsOpen != _ui.Config.ShowStatusOverlay)
-            _statusOverlay.IsOpen = _ui.Config.ShowStatusOverlay;
+        if (statusOverlay.IsOpen != C.ShowStatusOverlay)
+            statusOverlay.IsOpen = C.ShowStatusOverlay;
 
-        _windowSystem.Draw();
+        windowSystem.Draw();
 
-        if (_ui.Config.ShowStatusOverlay == _statusOverlay.IsOpen)
-            return;
-
-        _ui.Config.ShowStatusOverlay = _statusOverlay.IsOpen;
-        _ui.SaveConfig();
+        if (C.ShowStatusOverlay != statusOverlay.IsOpen)
+        {
+            C.ShowStatusOverlay = statusOverlay.IsOpen;
+            P.ConfigStore.Save();
+        }
     }
 
     public void Dispose()
@@ -69,7 +45,6 @@ public sealed class PluginUi : IDisposable
         Svc.PluginInterface.UiBuilder.Draw -= Draw;
         Svc.PluginInterface.UiBuilder.OpenConfigUi -= OpenMainWindow;
         Svc.PluginInterface.UiBuilder.OpenMainUi -= OpenMainWindow;
-        _windowSystem.RemoveAllWindows();
+        windowSystem.RemoveAllWindows();
     }
 }
-

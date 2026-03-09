@@ -1,4 +1,4 @@
-﻿{
+{
   "main.tab.home": "主页",
   "main.tab.settings": "设置",
   "common.state": "状态",
@@ -93,6 +93,7 @@
   "settings.craft_point.list_status_default": "默认包含旅馆，刷新后可加载住宅点。",
   "settings.craft_point.list_status_loaded": "已加载 {0} 个返回点。",
   "settings.craft_point.list_status_inn_only": "当前仅检测到旅馆返回点。",
+  "state.workflow.running": "流程执行中",
   "state.orchestrator.idle": "空闲",
   "state.orchestrator.waiting_pause": "等待 Artisan 暂停",
   "state.orchestrator.waiting_idle": "等待角色空闲",

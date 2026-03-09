@@ -1,32 +1,27 @@
-﻿using Dalamud.Bindings.ImGui;
+using Dalamud.Bindings.ImGui;
 using Dalamud.Interface.Windowing;
-using StarLoom.UI.Components.Home;
-using StarLoom.UI.Components.Settings;
-using StarLoom.UI;
-using StarLoom.UI.Components.Shared;
+using Starloom.UI.Components.Home;
+using Starloom.UI.Components.Settings;
+using Starloom.UI.Components.Shared;
 using System;
 using System.Numerics;
 
-namespace StarLoom.UI;
+namespace Starloom.UI;
 
 public sealed class MainWindow : Window
 {
-    private readonly IPluginUiFacade _ui;
-    private readonly HomeTab _homeTab;
-    private readonly SettingsTab _settingsTab;
+    private readonly HomeTab homeTab;
+    private readonly SettingsTab settingsTab;
 
-    public MainWindow(IPluginUiFacade ui)
-        : base("Starloom###StarloomMainWindow")
+    public MainWindow() : base("Starloom###StarloomMainWindow")
     {
-        _ui = ui;
-        _homeTab = new HomeTab(ui);
-        _settingsTab = new SettingsTab(ui);
+        homeTab = new HomeTab();
+        settingsTab = new SettingsTab();
     }
 
     public override void PreDraw()
     {
         ImGui.SetNextWindowSize(new Vector2(1180, 760), ImGuiCond.FirstUseEver);
-
         ImGui.PushStyleColor(ImGuiCol.WindowBg, GamePanelStyle.Layer0);
         ImGui.PushStyleColor(ImGuiCol.Border, GamePanelStyle.BorderSubtle);
         ImGui.PushStyleVar(ImGuiStyleVar.WindowRounding, 10f);
@@ -45,8 +40,8 @@ public sealed class MainWindow : Window
         if (!ImGui.BeginTabBar("##StarloomTabs"))
             return;
 
-        DrawTab("home", _ui.GetText("main.tab.home"), () => _homeTab.Draw());
-        DrawTab("settings", _ui.GetText("main.tab.settings"), () => _settingsTab.Draw());
+        DrawTab("home", P.Localization.Get("main.tab.home"), () => homeTab.Draw());
+        DrawTab("settings", P.Localization.Get("main.tab.settings"), () => settingsTab.Draw());
 
         ImGui.EndTabBar();
     }
@@ -58,15 +53,9 @@ public sealed class MainWindow : Window
             var drawList = ImGui.GetWindowDrawList();
             var min = ImGui.GetItemRectMin();
             var max = ImGui.GetItemRectMax();
-            drawList.AddLine(
-                new Vector2(min.X, max.Y),
-                new Vector2(max.X, max.Y),
-                ImGui.GetColorU32(GamePanelStyle.Accent),
-                2f);
-
+            drawList.AddLine(new Vector2(min.X, max.Y), new Vector2(max.X, max.Y), ImGui.GetColorU32(GamePanelStyle.Accent), 2f);
             drawContent();
             ImGui.EndTabItem();
         }
     }
 }
-

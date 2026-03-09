@@ -5,7 +5,7 @@ using System.Globalization;
 using System.IO;
 using System.Text.Json;
 
-namespace StarLoom.Services;
+namespace Starloom.Services;
 
 public sealed class LocalizationService
 {
@@ -15,29 +15,41 @@ public sealed class LocalizationService
         AllowTrailingCommas = true,
     };
 
-    private readonly ConfigurationStore _configurationStore;
-    private Dictionary<string, string> _translations = new(StringComparer.Ordinal);
+    private readonly ConfigurationStore configurationStore;
+    private Dictionary<string, string> translations = new(StringComparer.Ordinal);
 
     public LocalizationService(ConfigurationStore configurationStore)
     {
-        _configurationStore = configurationStore;
+        this.configurationStore = configurationStore;
         Reload();
     }
 
-    public string CurrentLanguage => _configurationStore.Configuration.UiLanguage;
+    public string CurrentLanguage => configurationStore.Configuration.UiLanguage;
 
     public void Reload()
     {
         var filePath = GetFilePath(CurrentLanguage);
-        var json = File.ReadAllText(filePath);
-        _translations = JsonSerializer.Deserialize<Dictionary<string, string>>(json, JsonOptions)
-            ?? throw new InvalidOperationException($"Failed to load localization file: {filePath}");
+        try
+        {
+            var json = File.ReadAllText(filePath);
+            var parsed = JsonSerializer.Deserialize<Dictionary<string, string>>(json, JsonOptions);
+            if (parsed is null or { Count: 0 })
+            {
+                Svc.Log.Warning($"Localization file was empty or invalid: {filePath}");
+                return;
+            }
 
-        Svc.Log.Info($"[Starloom] Loaded UI localization: {CurrentLanguage}");
+            translations = parsed;
+            Svc.Log.Info($"Loaded UI localization: {CurrentLanguage}");
+        }
+        catch (Exception ex)
+        {
+            Svc.Log.Error($"Failed to load localization file: {filePath}\n{ex}");
+        }
     }
 
     public string Get(string key)
-        => _translations[key];
+        => translations[key];
 
     public string Format(string key, params object[] args)
         => string.Format(CultureInfo.InvariantCulture, Get(key), args);

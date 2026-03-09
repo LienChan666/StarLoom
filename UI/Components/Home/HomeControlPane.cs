@@ -1,24 +1,17 @@
-﻿using Dalamud.Bindings.ImGui;
-using StarLoom.UI;
-using StarLoom.UI.Components.Shared;
+using Dalamud.Bindings.ImGui;
+using Starloom.Automation;
+using Starloom.UI.Components.Shared;
 using System;
 using System.Numerics;
 
-namespace StarLoom.UI.Components.Home;
+namespace Starloom.UI.Components.Home;
 
 internal sealed class HomeControlPane
 {
-    private readonly IPluginUiFacade _ui;
-
-    public HomeControlPane(IPluginUiFacade ui)
-    {
-        _ui = ui;
-    }
-
     public void Draw(Vector2 size)
     {
         using var _ = GamePanelStyle.BeginPanel("##HomeControlPane", size, GamePanelStyle.BorderAccent, GamePanelStyle.Gold);
-        GamePanelStyle.DrawPanelHeader(_ui.GetText("home.control.title"), _ui.GetText("home.control.description"));
+        GamePanelStyle.DrawPanelHeader(P.Localization.Get("home.control.title"), P.Localization.Get("home.control.description"));
 
         DrawStatusSection();
         ImGui.Spacing();
@@ -28,64 +21,72 @@ internal sealed class HomeControlPane
         ImGui.Spacing();
         DrawQuickActions();
         ImGui.Spacing();
-        GamePanelStyle.DrawHint(_ui.GetText("home.control.hint"));
+        GamePanelStyle.DrawHint(P.Localization.Get("home.control.hint"));
     }
 
-    private void DrawStatusSection()
+    private static void DrawStatusSection()
     {
-        GamePanelStyle.DrawSectionTitle(_ui.GetText("home.control.total_state.title"), _ui.GetText("home.control.total_state.description"));
+        GamePanelStyle.DrawSectionTitle(P.Localization.Get("home.control.total_state.title"), P.Localization.Get("home.control.total_state.description"));
         GamePanelStyle.DrawGradientSeparator();
 
-        var schedulerColor = _ui.IsAutomationBusy ? GamePanelStyle.Gold : GamePanelStyle.Success;
+        var schedulerColor = P.Automation.IsBusy ? GamePanelStyle.Gold : GamePanelStyle.Success;
         GamePanelStyle.DrawStatusDot(schedulerColor);
-        GamePanelStyle.DrawInfoRow("home.control.total_state", _ui.GetText("common.state"), _ui.GetOrchestratorStateText());
-        GamePanelStyle.DrawInfoRow("home.control.current_list", _ui.GetText("common.current_list"), _ui.Config.ArtisanListId.ToString());
+        GamePanelStyle.DrawInfoRow("home.control.total_state", P.Localization.Get("common.state"), GetOrchestratorStateText());
+        GamePanelStyle.DrawInfoRow("home.control.current_list", P.Localization.Get("common.current_list"), C.ArtisanListId.ToString());
     }
 
-    private void DrawArtisanListSection()
+    private static void DrawArtisanListSection()
     {
-        GamePanelStyle.DrawSectionTitle(_ui.GetText("home.control.artisan_list.title"), _ui.GetText("home.control.artisan_list.description"));
+        GamePanelStyle.DrawSectionTitle(P.Localization.Get("home.control.artisan_list.title"), P.Localization.Get("home.control.artisan_list.description"));
 
-        var artisanListId = _ui.Config.ArtisanListId;
+        var artisanListId = C.ArtisanListId;
         var previousArtisanListId = artisanListId;
 
-        GamePanelStyle.DrawSettingLabel(_ui.GetText("home.control.artisan_list.input_label"));
+        GamePanelStyle.DrawSettingLabel(P.Localization.Get("home.control.artisan_list.input_label"));
         ImGui.SetNextItemWidth(-1f);
         if (ImGui.InputInt("##HomeArtisanListId", ref artisanListId, 0, 0))
-            _ui.Config.ArtisanListId = Math.Max(0, artisanListId);
+            C.ArtisanListId = Math.Max(0, artisanListId);
 
-        if (ImGui.IsItemDeactivatedAfterEdit() && _ui.Config.ArtisanListId != previousArtisanListId)
-            _ui.SaveConfig();
+        if (ImGui.IsItemDeactivatedAfterEdit() && C.ArtisanListId != previousArtisanListId)
+            P.ConfigStore.Save();
 
-        GamePanelStyle.DrawHint(_ui.GetText("home.control.artisan_list.hint"));
+        GamePanelStyle.DrawHint(P.Localization.Get("home.control.artisan_list.hint"));
     }
 
-    private void DrawPrimaryActions()
+    private static void DrawPrimaryActions()
     {
         var buttonWidth = ImGui.GetContentRegionAvail().X;
-        var isRunning = _ui.IsAutomationBusy;
+        var isRunning = P.Automation.IsBusy;
 
-        GamePanelStyle.DrawSectionTitle(_ui.GetText("home.control.workflow.title"), _ui.GetText("home.control.workflow.description"));
-        if (GamePanelStyle.DrawActionButton("home.control.start", _ui.GetText("common.start"), GamePanelStyle.Accent, buttonWidth, !isRunning, "▶"))
-            _ui.StartConfiguredWorkflow();
-        if (GamePanelStyle.DrawActionButton("home.control.stop", _ui.GetText("common.stop"), GamePanelStyle.Danger, buttonWidth, isRunning, "■"))
-            _ui.StopAutomation();
+        GamePanelStyle.DrawSectionTitle(P.Localization.Get("home.control.workflow.title"), P.Localization.Get("home.control.workflow.description"));
+        if (GamePanelStyle.DrawActionButton("home.control.start", P.Localization.Get("common.start"), GamePanelStyle.Accent, buttonWidth, !isRunning, "▶"))
+            P.Automation.StartConfiguredWorkflow();
+        if (GamePanelStyle.DrawActionButton("home.control.stop", P.Localization.Get("common.stop"), GamePanelStyle.Danger, buttonWidth, isRunning, "■"))
+            P.Automation.Stop();
     }
 
-    private void DrawQuickActions()
+    private static void DrawQuickActions()
     {
         var buttonWidth = ImGui.GetContentRegionAvail().X;
-        var isRunning = _ui.IsAutomationBusy;
-        var hasConfiguredPurchases = _ui.HasConfiguredPurchases;
+        var isRunning = P.Automation.IsBusy;
+        var hasConfiguredPurchases = P.Automation.HasConfiguredPurchases;
 
-        GamePanelStyle.DrawSectionTitle(_ui.GetText("home.control.quick.title"), _ui.GetText("home.control.quick.description"));
-        if (GamePanelStyle.DrawActionButton("home.control.turn_in", _ui.GetText("home.control.quick.turn_in"), GamePanelStyle.Success, buttonWidth, !isRunning, "↑"))
-            _ui.StartCollectableTurnIn();
-        if (GamePanelStyle.DrawActionButton("home.control.purchase", _ui.GetText("home.control.quick.purchase"), GamePanelStyle.Warning, buttonWidth, !isRunning && hasConfiguredPurchases, "↓"))
-            _ui.StartPurchaseOnly();
+        GamePanelStyle.DrawSectionTitle(P.Localization.Get("home.control.quick.title"), P.Localization.Get("home.control.quick.description"));
+        if (GamePanelStyle.DrawActionButton("home.control.turn_in", P.Localization.Get("home.control.quick.turn_in"), GamePanelStyle.Success, buttonWidth, !isRunning, "↑"))
+            P.Automation.StartCollectableTurnIn();
+        if (GamePanelStyle.DrawActionButton("home.control.purchase", P.Localization.Get("home.control.quick.purchase"), GamePanelStyle.Warning, buttonWidth, !isRunning && hasConfiguredPurchases, "↓"))
+            P.Automation.StartPurchaseOnly();
 
         if (!hasConfiguredPurchases)
-            GamePanelStyle.DrawHint(_ui.GetText("home.control.quick.hint_purchase_required"));
+            GamePanelStyle.DrawHint(P.Localization.Get("home.control.quick.hint_purchase_required"));
+    }
+
+    private static string GetOrchestratorStateText()
+    {
+        if (P.Session.State != ArtisanSessionState.Idle)
+            return P.Localization.Get(P.Session.GetStateKey());
+
+        var key = P.TM.IsBusy ? "state.orchestrator.running" : "state.orchestrator.idle";
+        return P.Localization.Get(key);
     }
 }
-

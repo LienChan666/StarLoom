@@ -1,9 +1,9 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using StarLoom.Data;
+using Starloom.Data;
 
-namespace StarLoom.Services;
+namespace Starloom.Services;
 
 public static class ScripCurrencyResolver
 {

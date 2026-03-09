@@ -1,4 +1,4 @@
-﻿{
+{
   "main.tab.home": "Home",
   "main.tab.settings": "Settings",
   "common.state": "State",
@@ -93,6 +93,7 @@
   "settings.craft_point.list_status_default": "The inn is always available; refresh to load housing points.",
   "settings.craft_point.list_status_loaded": "Loaded {0} return points.",
   "settings.craft_point.list_status_inn_only": "Only the inn return point is currently available.",
+  "state.workflow.running": "Running workflow",
   "state.orchestrator.idle": "Idle",
   "state.orchestrator.waiting_pause": "Waiting for Artisan pause",
   "state.orchestrator.waiting_idle": "Waiting for character idle",

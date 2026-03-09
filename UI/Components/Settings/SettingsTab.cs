@@ -1,10 +1,9 @@
-﻿using Dalamud.Bindings.ImGui;
-using StarLoom.UI;
-using StarLoom.UI.Components.Shared;
+using Dalamud.Bindings.ImGui;
+using Starloom.UI.Components.Shared;
 using System;
 using System.Numerics;
 
-namespace StarLoom.UI.Components.Settings;
+namespace Starloom.UI.Components.Settings;
 
 internal sealed class SettingsTab
 {
@@ -16,21 +15,11 @@ internal sealed class SettingsTab
         Display,
     }
 
-    private readonly IPluginUiFacade _ui;
-    private readonly ShopSettingsCard _shopSettingsCard;
-    private readonly CraftPointSettingsCard _craftPointSettingsCard;
-    private readonly PurchaseSettingsCard _purchaseSettingsCard;
-    private readonly DisplaySettingsCard _displaySettingsCard;
-    private SettingsSection _selectedSection = SettingsSection.Shop;
-
-    public SettingsTab(IPluginUiFacade ui)
-    {
-        _ui = ui;
-        _shopSettingsCard = new ShopSettingsCard(ui);
-        _craftPointSettingsCard = new CraftPointSettingsCard(ui);
-        _purchaseSettingsCard = new PurchaseSettingsCard(ui);
-        _displaySettingsCard = new DisplaySettingsCard(ui);
-    }
+    private readonly ShopSettingsCard shopSettingsCard = new();
+    private readonly CraftPointSettingsCard craftPointSettingsCard = new();
+    private readonly PurchaseSettingsCard purchaseSettingsCard = new();
+    private readonly DisplaySettingsCard displaySettingsCard = new();
+    private SettingsSection selectedSection = SettingsSection.Shop;
 
     public void Draw()
     {
@@ -50,23 +39,23 @@ internal sealed class SettingsTab
         {
             DrawSelectedSection();
             ImGui.Spacing();
-            GamePanelStyle.DrawHint(_ui.GetText("settings.footer.hint"));
+            GamePanelStyle.DrawHint(P.Localization.Get("settings.footer.hint"));
         }
     }
 
     private void DrawSidebar()
     {
-        GamePanelStyle.DrawPanelHeader(_ui.GetText("settings.sidebar.title"), _ui.GetText("settings.sidebar.description"));
+        GamePanelStyle.DrawPanelHeader(P.Localization.Get("settings.sidebar.title"), P.Localization.Get("settings.sidebar.description"));
 
-        DrawSidebarItem(SettingsSection.Shop, _ui.GetText("settings.sidebar.shop"));
-        DrawSidebarItem(SettingsSection.CraftPoint, _ui.GetText("settings.sidebar.craft_point"));
-        DrawSidebarItem(SettingsSection.Purchase, _ui.GetText("settings.sidebar.purchase"));
-        DrawSidebarItem(SettingsSection.Display, _ui.GetText("settings.sidebar.display"));
+        DrawSidebarItem(SettingsSection.Shop, P.Localization.Get("settings.sidebar.shop"));
+        DrawSidebarItem(SettingsSection.CraftPoint, P.Localization.Get("settings.sidebar.craft_point"));
+        DrawSidebarItem(SettingsSection.Purchase, P.Localization.Get("settings.sidebar.purchase"));
+        DrawSidebarItem(SettingsSection.Display, P.Localization.Get("settings.sidebar.display"));
     }
 
     private void DrawSidebarItem(SettingsSection section, string title)
     {
-        var isSelected = _selectedSection == section;
+        var isSelected = selectedSection == section;
 
         if (isSelected)
         {
@@ -84,7 +73,7 @@ internal sealed class SettingsTab
         }
 
         if (ImGui.Selectable($"{title}##{section}", isSelected, ImGuiSelectableFlags.None, new Vector2(-1f, 28f)))
-            _selectedSection = section;
+            selectedSection = section;
 
         if (isSelected)
         {
@@ -104,37 +93,36 @@ internal sealed class SettingsTab
 
     private void DrawSelectedSection()
     {
-        switch (_selectedSection)
+        switch (selectedSection)
         {
             case SettingsSection.Shop:
                 SettingsCard.Draw(
                     "##SettingsShopCard",
-                    _ui.GetText("settings.card.shop.title"),
-                    _ui.GetText("settings.card.shop.description"),
-                    _shopSettingsCard.Draw);
+                    P.Localization.Get("settings.card.shop.title"),
+                    P.Localization.Get("settings.card.shop.description"),
+                    shopSettingsCard.Draw);
                 break;
             case SettingsSection.CraftPoint:
                 SettingsCard.Draw(
                     "##SettingsCraftPointCard",
-                    _ui.GetText("settings.card.craft_point.title"),
-                    _ui.GetText("settings.card.craft_point.description"),
-                    _craftPointSettingsCard.Draw);
+                    P.Localization.Get("settings.card.craft_point.title"),
+                    P.Localization.Get("settings.card.craft_point.description"),
+                    craftPointSettingsCard.Draw);
                 break;
             case SettingsSection.Purchase:
                 SettingsCard.Draw(
                     "##SettingsPurchaseCard",
-                    _ui.GetText("settings.card.purchase.title"),
-                    _ui.GetText("settings.card.purchase.description"),
-                    _purchaseSettingsCard.Draw);
+                    P.Localization.Get("settings.card.purchase.title"),
+                    P.Localization.Get("settings.card.purchase.description"),
+                    purchaseSettingsCard.Draw);
                 break;
             case SettingsSection.Display:
                 SettingsCard.Draw(
                     "##SettingsDisplayCard",
-                    _ui.GetText("settings.card.display.title"),
-                    _ui.GetText("settings.card.display.description"),
-                    _displaySettingsCard.Draw);
+                    P.Localization.Get("settings.card.display.title"),
+                    P.Localization.Get("settings.card.display.description"),
+                    displaySettingsCard.Draw);
                 break;
         }
     }
 }
-

@@ -1,4 +1,4 @@
-namespace StarLoom.Data;
+namespace Starloom.Data;
 
 public enum ScripDiscipline
 {

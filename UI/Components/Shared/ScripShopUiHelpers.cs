@@ -1,29 +1,27 @@
 using Dalamud.Bindings.ImGui;
-using StarLoom.Data;
-using StarLoom.UI;
+using Starloom.Data;
 
-namespace StarLoom.UI.Components.Shared;
+namespace Starloom.UI.Components.Shared;
 
 internal static class ScripShopUiHelpers
 {
-    internal static void DrawCurrencyLabel(IPluginUiFacade ui, ScripShopItem item)
+    internal static void DrawCurrencyLabel(ScripShopItem item)
     {
-        ImGui.TextUnformatted(GetCurrencyLabel(ui, item));
-
+        ImGui.TextUnformatted(GetCurrencyLabel(item));
         if (!string.IsNullOrWhiteSpace(item.CurrencyName) && ImGui.IsItemHovered())
             ImGui.SetTooltip(item.CurrencyName);
     }
 
-    internal static string GetCurrencyLabel(IPluginUiFacade ui, ScripShopItem item)
+    internal static string GetCurrencyLabel(ScripShopItem item)
     {
         if (!string.IsNullOrWhiteSpace(item.CurrencyName))
             return item.CurrencyName;
 
         if (item.Discipline == ScripDiscipline.Crafting)
-            return ui.GetText("currency.crafting");
+            return P.Localization.Get("currency.crafting");
 
         return item.Discipline == ScripDiscipline.Gathering
-            ? ui.GetText("currency.gathering")
-            : ui.GetText("currency.unknown");
+            ? P.Localization.Get("currency.gathering")
+            : P.Localization.Get("currency.unknown");
     }
 }

@@ -2,7 +2,7 @@ using Dalamud.Bindings.ImGui;
 using System;
 using System.Numerics;
 
-namespace StarLoom.UI.Components.Shared;
+namespace Starloom.UI.Components.Shared;
 
 internal static class GamePanelStyle
 {
@@ -236,11 +236,11 @@ internal static class GamePanelStyle
 
     internal sealed class PanelScope : IDisposable
     {
-        private readonly Vector4? _accentBarColor;
+        private readonly Vector4? accentBarColor;
 
         public PanelScope(string id, Vector2 size, Vector4 borderColor, Vector4? accentBarColor = null)
         {
-            _accentBarColor = accentBarColor;
+            this.accentBarColor = accentBarColor;
             ImGui.PushStyleColor(ImGuiCol.ChildBg, Layer1);
             ImGui.PushStyleColor(ImGuiCol.Border, borderColor);
             ImGui.PushStyleColor(ImGuiCol.Separator, SeparatorDim);
@@ -252,7 +252,7 @@ internal static class GamePanelStyle
 
         public void Dispose()
         {
-            if (_accentBarColor.HasValue)
+            if (this.accentBarColor.HasValue)
             {
                 var drawList = ImGui.GetWindowDrawList();
                 var windowPos = ImGui.GetWindowPos();
@@ -260,7 +260,7 @@ internal static class GamePanelStyle
                 drawList.AddRectFilled(
                     windowPos,
                     new Vector2(windowPos.X + 3f, windowPos.Y + windowSize.Y),
-                    ImGui.GetColorU32(_accentBarColor.Value),
+                    ImGui.GetColorU32(this.accentBarColor.Value),
                     8f,
                     ImDrawFlags.RoundCornersLeft);
             }

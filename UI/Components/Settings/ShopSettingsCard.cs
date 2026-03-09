@@ -1,31 +1,23 @@
-﻿using Dalamud.Bindings.ImGui;
-using StarLoom.Data;
-using StarLoom.UI;
-using StarLoom.UI.Components.Shared;
+using Dalamud.Bindings.ImGui;
+using Starloom.Data;
+using Starloom.UI.Components.Shared;
 using System;
 using System.Linq;
 
-namespace StarLoom.UI.Components.Settings;
+namespace Starloom.UI.Components.Settings;
 
 internal sealed class ShopSettingsCard
 {
-    private readonly IPluginUiFacade _ui;
-
-    public ShopSettingsCard(IPluginUiFacade ui)
-    {
-        _ui = ui;
-    }
-
     public void Draw()
     {
-        var currentShop = _ui.Config.PreferredCollectableShop;
-        var preview = currentShop?.Name ?? _ui.GetText("common.not_selected");
+        var currentShop = C.PreferredCollectableShop;
+        var preview = currentShop?.Name ?? P.Localization.Get("common.not_selected");
         if (!GamePanelStyle.BeginSettingsTable("##ShopSettingsTable"))
             return;
 
         ImGui.TableNextRow();
         ImGui.TableSetColumnIndex(0);
-        GamePanelStyle.DrawSettingLabel(_ui.GetText("settings.shop.collectable_shop"));
+        GamePanelStyle.DrawSettingLabel(P.Localization.Get("settings.shop.collectable_shop"));
 
         ImGui.TableSetColumnIndex(1);
         ImGui.SetNextItemWidth(Math.Min(320f, ImGui.GetContentRegionAvail().X));
@@ -37,8 +29,8 @@ internal sealed class ShopSettingsCard
                     && string.Equals(currentShop.Name, shop.Name, StringComparison.Ordinal);
                 if (ImGui.Selectable($"{shop.Name}##Shop_{shop.Name}", isSelected))
                 {
-                    _ui.Config.PreferredCollectableShop = shop;
-                    _ui.SaveConfig();
+                    C.PreferredCollectableShop = shop;
+                    P.ConfigStore.Save();
                     currentShop = shop;
                     preview = currentShop.Name;
                 }
@@ -53,4 +45,3 @@ internal sealed class ShopSettingsCard
         ImGui.EndTable();
     }
 }
-

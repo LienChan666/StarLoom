@@ -1,16 +1,15 @@
 using ECommons.DalamudServices;
 using FFXIVClientStructs.FFXIV.Client.Game;
 using Lumina.Excel.Sheets;
-using StarLoom.Services.Interfaces;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 
-namespace StarLoom.Services;
+namespace Starloom.Services;
 
 public readonly record struct InventoryItem(uint BaseItemId, uint Quantity, bool IsCollectable);
 
-public sealed unsafe class InventoryService : IInventoryService
+public sealed unsafe class InventoryService
 {
     private static readonly TimeSpan SnapshotLifetime = TimeSpan.FromMilliseconds(250);
     private static readonly InventoryType[] InventoryTypes =
@@ -21,16 +20,16 @@ public sealed unsafe class InventoryService : IInventoryService
         InventoryType.Inventory4,
     ];
 
-    private InventorySnapshot? _cachedSnapshot;
-    private DateTime _cachedSnapshotAt;
-    private HashSet<uint>? _collectableTurnInItemIds;
+    private InventorySnapshot? cachedSnapshot;
+    private DateTime cachedSnapshotAt;
+    private HashSet<uint>? collectableTurnInItemIds;
 
     private readonly record struct InventorySnapshot(List<InventoryItem> Items, int FreeSlotCount);
 
     public void InvalidateTransientCaches()
     {
-        _cachedSnapshot = null;
-        _cachedSnapshotAt = DateTime.MinValue;
+        cachedSnapshot = null;
+        cachedSnapshotAt = DateTime.MinValue;
     }
 
     public List<InventoryItem> GetCurrentInventoryItems()
@@ -78,16 +77,16 @@ public sealed unsafe class InventoryService : IInventoryService
 
     private InventorySnapshot GetCurrentSnapshot()
     {
-        if (_cachedSnapshot is { } cachedSnapshot
-            && (DateTime.UtcNow - _cachedSnapshotAt) <= SnapshotLifetime)
+        if (cachedSnapshot is { } snapshot
+            && (DateTime.UtcNow - cachedSnapshotAt) <= SnapshotLifetime)
         {
-            return cachedSnapshot;
+            return snapshot;
         }
 
-        var snapshot = BuildSnapshot();
-        _cachedSnapshot = snapshot;
-        _cachedSnapshotAt = DateTime.UtcNow;
-        return snapshot;
+        var newSnapshot = BuildSnapshot();
+        cachedSnapshot = newSnapshot;
+        cachedSnapshotAt = DateTime.UtcNow;
+        return newSnapshot;
     }
 
     private static InventorySnapshot BuildSnapshot()
@@ -126,14 +125,14 @@ public sealed unsafe class InventoryService : IInventoryService
 
     private HashSet<uint> GetCollectableTurnInItemIds()
     {
-        if (_collectableTurnInItemIds != null)
-            return _collectableTurnInItemIds;
+        if (collectableTurnInItemIds != null)
+            return collectableTurnInItemIds;
 
         var shopSubSheet = Svc.Data.GetSubrowExcelSheet<CollectablesShopItem>();
-        _collectableTurnInItemIds = shopSubSheet == null
+        collectableTurnInItemIds = shopSubSheet == null
             ? []
             : shopSubSheet.SelectMany(sheet => sheet).Select(row => row.Item.RowId).ToHashSet();
 
-        return _collectableTurnInItemIds;
+        return collectableTurnInItemIds;
     }
 }

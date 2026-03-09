@@ -2,21 +2,20 @@ using Dalamud.Game.ClientState.Objects.Types;
 using ECommons.DalamudServices;
 using FFXIVClientStructs.FFXIV.Client.Game.Control;
 using FFXIVClientStructs.FFXIV.Client.Game.Object;
-using StarLoom.Services.Interfaces;
 using System;
 using System.Linq;
 using System.Numerics;
 
-namespace StarLoom.Services;
+namespace Starloom.Services;
 
-public sealed unsafe class NpcInteractionService : INpcInteractionService
+public sealed unsafe class NpcInteractionService
 {
-    private DateTime _lastInteraction = DateTime.MinValue;
-    private readonly TimeSpan _interactionCooldown = TimeSpan.FromSeconds(1);
+    private DateTime lastInteraction = DateTime.MinValue;
+    private readonly TimeSpan interactionCooldown = TimeSpan.FromSeconds(1);
 
     public bool TryInteract(uint npcBaseId, float maxDistance = 6f)
     {
-        if ((DateTime.UtcNow - _lastInteraction) < _interactionCooldown)
+        if ((DateTime.UtcNow - lastInteraction) < interactionCooldown)
             return false;
 
         var npc = Svc.Objects.FirstOrDefault(x => x.BaseId == npcBaseId);
@@ -29,13 +28,13 @@ public sealed unsafe class NpcInteractionService : INpcInteractionService
 
         Svc.Targets.Target = npc;
         TargetSystem.Instance()->OpenObjectInteraction((GameObject*)npc.Address);
-        _lastInteraction = DateTime.UtcNow;
+        lastInteraction = DateTime.UtcNow;
         return true;
     }
 
     public bool TryInteract(IGameObject gameObject, float maxDistance = 6f)
     {
-        if ((DateTime.UtcNow - _lastInteraction) < _interactionCooldown)
+        if ((DateTime.UtcNow - lastInteraction) < interactionCooldown)
             return false;
 
         var playerPos = Svc.Objects.LocalPlayer?.Position ?? Vector3.Zero;
@@ -44,7 +43,7 @@ public sealed unsafe class NpcInteractionService : INpcInteractionService
 
         Svc.Targets.Target = gameObject;
         TargetSystem.Instance()->OpenObjectInteraction((GameObject*)gameObject.Address);
-        _lastInteraction = DateTime.UtcNow;
+        lastInteraction = DateTime.UtcNow;
         return true;
     }
 }

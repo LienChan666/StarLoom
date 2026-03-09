@@ -2,7 +2,7 @@ using Dalamud.Bindings.ImGui;
 using System;
 using System.Numerics;
 
-namespace StarLoom.UI.Components.Shared;
+namespace Starloom.UI.Components.Shared;
 
 internal sealed class ChildScope : IDisposable
 {

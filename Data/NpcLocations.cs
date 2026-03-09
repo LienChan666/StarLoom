@@ -1,7 +1,7 @@
 using System.Collections.Generic;
 using System.Numerics;
 
-namespace StarLoom.Data;
+namespace Starloom.Data;
 
 public static class NpcLocations
 {
