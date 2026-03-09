@@ -1,7 +1,7 @@
-using Starloom.Core;
+using StarLoom.Core;
 using System.Diagnostics;
 
-namespace Starloom.Jobs;
+namespace StarLoom.Jobs;
 
 public sealed class CloseGameJob : IAutomationJob
 {

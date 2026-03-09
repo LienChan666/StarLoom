@@ -1,12 +1,13 @@
-using Starloom.IPC;
-using Starloom.Services;
+using StarLoom.IPC;
+using StarLoom.Services.Interfaces;
 
-namespace Starloom.Core;
+namespace StarLoom.Core;
 
 public sealed class JobContext
 {
-    public ArtisanIPC Artisan { get; init; } = null!;
-    public NavigationService Navigation { get; init; } = null!;
-    public NpcInteractionService NpcInteraction { get; init; } = null!;
+    public IArtisanIpc Artisan { get; init; } = null!;
+    public INavigationService Navigation { get; init; } = null!;
+    public INpcInteractionService NpcInteraction { get; init; } = null!;
+    public IInventoryService Inventory { get; init; } = null!;
     public Configuration Config { get; init; } = null!;
 }

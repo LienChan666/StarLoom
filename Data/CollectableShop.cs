@@ -1,6 +1,6 @@
 using System.Numerics;
 
-namespace Starloom.Data;
+namespace StarLoom.Data;
 
 public class CollectableShop
 {

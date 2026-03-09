@@ -1,9 +1,9 @@
 using Dalamud.Bindings.ImGui;
-using Starloom.Data;
-using Starloom.UI.Components.Shared;
+using StarLoom.Data;
+using StarLoom.UI.Components.Shared;
 using System;
 
-namespace Starloom.UI.Components.Settings;
+namespace StarLoom.UI.Components.Settings;
 
 internal sealed class PurchaseSettingsCard
 {
@@ -27,7 +27,7 @@ internal sealed class PurchaseSettingsCard
         if (ImGui.Checkbox("提交后自动购买", ref buyAfterEachTurnIn))
         {
             _plugin.Config.BuyAfterEachTurnIn = buyAfterEachTurnIn;
-            _plugin.Config.Save();
+            _plugin.SaveConfig();
         }
 
         var postPurchaseAction = _plugin.Config.PostPurchaseAction;
@@ -44,13 +44,13 @@ internal sealed class PurchaseSettingsCard
             if (ImGui.Selectable("返回配置的返回点", postPurchaseAction == PurchaseCompletionAction.ReturnToConfiguredPoint))
             {
                 _plugin.Config.PostPurchaseAction = PurchaseCompletionAction.ReturnToConfiguredPoint;
-                _plugin.Config.Save();
+                _plugin.SaveConfig();
             }
 
             if (ImGui.Selectable("关闭游戏", postPurchaseAction == PurchaseCompletionAction.CloseGame))
             {
                 _plugin.Config.PostPurchaseAction = PurchaseCompletionAction.CloseGame;
-                _plugin.Config.Save();
+                _plugin.SaveConfig();
             }
 
             ImGui.EndCombo();
@@ -67,7 +67,7 @@ internal sealed class PurchaseSettingsCard
             _plugin.Config.ReserveScripAmount = Math.Max(0, reserveScripAmount);
 
         if (ImGui.IsItemDeactivatedAfterEdit() && _plugin.Config.ReserveScripAmount != previousReserveScripAmount)
-            _plugin.Config.Save();
+            _plugin.SaveConfig();
 
         var freeSlotThreshold = _plugin.Config.FreeSlotThreshold;
         var previousFreeSlotThreshold = freeSlotThreshold;
@@ -80,7 +80,7 @@ internal sealed class PurchaseSettingsCard
             _plugin.Config.FreeSlotThreshold = Math.Max(0, freeSlotThreshold);
 
         if (ImGui.IsItemDeactivatedAfterEdit() && _plugin.Config.FreeSlotThreshold != previousFreeSlotThreshold)
-            _plugin.Config.Save();
+            _plugin.SaveConfig();
 
         ImGui.EndTable();
     }

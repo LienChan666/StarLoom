@@ -1,10 +1,10 @@
 ﻿using ECommons.DalamudServices;
-using Starloom.Core;
-using Starloom.IPC;
+using StarLoom.Core;
+using StarLoom.IPC;
 using System;
 using System.Collections.Generic;
 
-namespace Starloom.Services;
+namespace StarLoom.Services;
 
 public enum ManagedArtisanSessionState
 {
@@ -18,7 +18,7 @@ public enum ManagedArtisanSessionState
 
 public sealed class ManagedArtisanSession
 {
-    private readonly ArtisanIPC _artisan;
+    private readonly IArtisanIpc _artisan;
     private readonly JobOrchestrator _orchestrator;
     private readonly Configuration _config;
     private readonly Func<IReadOnlyList<IAutomationJob>> _jobFactory;
@@ -31,7 +31,7 @@ public sealed class ManagedArtisanSession
     public string? ErrorMessage { get; private set; }
     public bool IsActive => State is not ManagedArtisanSessionState.Idle and not ManagedArtisanSessionState.Failed;
 
-    public ManagedArtisanSession(ArtisanIPC artisan, JobOrchestrator orchestrator, Configuration config, Func<IReadOnlyList<IAutomationJob>> jobFactory)
+    public ManagedArtisanSession(IArtisanIpc artisan, JobOrchestrator orchestrator, Configuration config, Func<IReadOnlyList<IAutomationJob>> jobFactory)
     {
         _artisan = artisan;
         _orchestrator = orchestrator;

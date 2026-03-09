@@ -1,8 +1,8 @@
 using Dalamud.Bindings.ImGui;
-using Starloom.UI.Components.Shared;
+using StarLoom.UI.Components.Shared;
 using System;
 
-namespace Starloom.UI.Components.Settings;
+namespace StarLoom.UI.Components.Settings;
 
 internal static class SettingsCard
 {

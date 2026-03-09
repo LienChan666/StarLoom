@@ -2,7 +2,7 @@ using ECommons.DalamudServices;
 using ECommons.Reflection;
 using System;
 
-namespace Starloom.IPC;
+namespace StarLoom.IPC;
 
 internal static class ExternalPluginDetector
 {

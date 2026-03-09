@@ -2,7 +2,7 @@ using Dalamud.Bindings.ImGui;
 using Dalamud.Interface.Windowing;
 using System.Numerics;
 
-namespace Starloom.UI;
+namespace StarLoom.UI;
 
 public sealed class StatusOverlay : Window
 {
