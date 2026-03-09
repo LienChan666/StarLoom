@@ -273,8 +273,6 @@ public sealed unsafe class ScripPurchaseJob : IAutomationJob
             return;
         }
 
-        ECommons.DalamudServices.Svc.Log.Information($"[ScripPurchaseJob] Purchasing candidate '{next.name}' with currencyItemId={next.currencyItemId}, scrips={scrips}, reserve={_context.Config.ReserveScripAmount}, cost={next.cost}, remaining={next.remaining}, amount={amount}");
-
         var knownShopItems = ScripShopItemManager.ShopItems.Count > 0
             ? ScripShopItemManager.ShopItems
             : _context.Config.ScripShopItems.Select(item => item.Item).ToList();

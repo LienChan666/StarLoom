@@ -46,12 +46,11 @@ public sealed class AutomationController
     {
         if (!WorkflowValidator.CanStartCollectableWorkflow(out var errorMessage))
         {
-            Svc.Log.Warning($"[Starloom] {errorMessage}");
             return;
         }
 
         if (!ManagedSession.TryStart())
-            Svc.Log.Warning($"[Starloom] {ManagedSession.ErrorMessage ?? "无法启动联动流程。"}");
+            return;
     }
 
     public void StartCollectableTurnIn()
@@ -61,7 +60,6 @@ public sealed class AutomationController
     {
         if (!WorkflowValidator.CanStartPurchaseWorkflow(out var purchaseError))
         {
-            Svc.Log.Warning($"[Starloom] {purchaseError}");
             return;
         }
 
@@ -94,17 +92,15 @@ public sealed class AutomationController
     {
         if (!WorkflowValidator.CanStartCollectableWorkflow(out var errorMessage))
         {
-            Svc.Log.Warning($"[Starloom] {errorMessage}");
             return;
         }
 
         if (ManagedSession.IsActive)
         {
-            Svc.Log.Warning($"[Starloom] 当前正在进行 Artisan 联动，忽略 {actionName} 启动请求。");
             return;
         }
 
         if (!Orchestrator.TryStart(jobs))
-            Svc.Log.Warning($"[Starloom] 当前已有任务在运行中，忽略 {actionName} 启动请求。");
+            return;
     }
 }

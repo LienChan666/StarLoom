@@ -86,7 +86,6 @@ public sealed class IpcCallRunner
             }
         }
 
-        Svc.Log.Error($"[{_serviceName}] {name} failed: {lastError}");
         if (requireAvailable && lastError != null)
             throw new InvalidOperationException($"{_pluginName} IPC call failed: {name}", lastError);
 

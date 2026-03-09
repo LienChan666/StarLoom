@@ -89,7 +89,6 @@ public unsafe class TurninWindowHelper(AtkUnitBase* addon) : TreeListHelper(addo
             itemCount++;
         }
 
-        Svc.Log.Debug($"[TurninWindowHelper] No match found for '{label}'");
         return -1;
     }
 }

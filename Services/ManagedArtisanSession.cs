@@ -1,6 +1,7 @@
-﻿using ECommons.DalamudServices;
+using ECommons.DalamudServices;
 using StarLoom.Core;
 using StarLoom.IPC;
+using StarLoom.Workflows;
 using System;
 using System.Collections.Generic;
 
@@ -22,6 +23,7 @@ public sealed class ManagedArtisanSession
     private readonly JobOrchestrator _orchestrator;
     private readonly Configuration _config;
     private readonly Func<IReadOnlyList<IAutomationJob>> _jobFactory;
+    private readonly WorkflowStartValidator _workflowValidator;
 
     private DateTime _stateEnteredAt = DateTime.MinValue;
     private bool _warnedMissingCollectablesAtThreshold;
@@ -31,12 +33,18 @@ public sealed class ManagedArtisanSession
     public string? ErrorMessage { get; private set; }
     public bool IsActive => State is not ManagedArtisanSessionState.Idle and not ManagedArtisanSessionState.Failed;
 
-    public ManagedArtisanSession(IArtisanIpc artisan, JobOrchestrator orchestrator, Configuration config, Func<IReadOnlyList<IAutomationJob>> jobFactory)
+    public ManagedArtisanSession(
+        IArtisanIpc artisan,
+        JobOrchestrator orchestrator,
+        Configuration config,
+        Func<IReadOnlyList<IAutomationJob>> jobFactory,
+        WorkflowStartValidator workflowValidator)
     {
         _artisan = artisan;
         _orchestrator = orchestrator;
         _config = config;
         _jobFactory = jobFactory;
+        _workflowValidator = workflowValidator;
     }
 
     public string GetStateText()
@@ -198,7 +206,6 @@ public sealed class ManagedArtisanSession
             StatusText = "背包空格低于阈值，但没有可提交的收藏品。";
             if (!_warnedMissingCollectablesAtThreshold)
             {
-                Svc.Log.Warning("[Starloom] 背包空格已低于阈值，但当前没有可提交的收藏品，忽略本次接管。");
                 _warnedMissingCollectablesAtThreshold = true;
             }
 
@@ -253,6 +260,12 @@ public sealed class ManagedArtisanSession
             return false;
         }
 
+        if (!_workflowValidator.CanStartArtisanList(out var errorMessage))
+        {
+            SetFailure(errorMessage, stopArtisan: false);
+            return false;
+        }
+
         if (_artisan.GetStopRequest())
             _artisan.SetStopRequest(false);
 
@@ -271,7 +284,6 @@ public sealed class ManagedArtisanSession
             _artisan.SetStopRequest(true);
 
         TransitionTo(ManagedArtisanSessionState.Failed, message);
-        Svc.Log.Warning($"[Starloom] {message}");
     }
 
     private void TransitionTo(ManagedArtisanSessionState newState, string statusText, bool preserveError = true)

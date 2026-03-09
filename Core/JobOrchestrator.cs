@@ -70,7 +70,6 @@ public sealed class JobOrchestrator : IDisposable
         if (_artisan.IsAvailable() && (_artisan.IsListRunning() || _artisan.GetEnduranceStatus()))
         {
             _artisan.SetStopRequest(true);
-            Svc.Log.Information("[Orchestrator] Requested Artisan stop before running queued jobs");
             TransitionTo(OrchestratorState.WaitingForArtisanPause);
         }
         else
@@ -113,7 +112,6 @@ public sealed class JobOrchestrator : IDisposable
                 return;
 
             case ArtisanPauseDecisionKind.MoveToIdleWait:
-                Svc.Log.Information($"[Orchestrator] Artisan pause acknowledged, waiting for local control ({ArtisanPauseGate.FormatStatus(status)})");
                 TransitionTo(OrchestratorState.WaitingForArtisanIdle);
                 return;
 
@@ -134,13 +132,11 @@ public sealed class JobOrchestrator : IDisposable
             if (_localActionReadyAt is null)
             {
                 _localActionReadyAt = DateTime.UtcNow;
-                Svc.Log.Information($"[Orchestrator] Local player control looks ready; waiting for stability ({ArtisanPauseGate.FormatStatus(artisanStatus)}; {LocalPlayerActionGate.FormatStatus(localStatus)})");
                 return;
             }
 
             if ((DateTime.UtcNow - _localActionReadyAt.Value) >= LocalActionReadyStableDuration)
             {
-                Svc.Log.Information($"[Orchestrator] Artisan pause acknowledged and local control is stable; starting Starloom jobs ({ArtisanPauseGate.FormatStatus(artisanStatus)}; {LocalPlayerActionGate.FormatStatus(localStatus)})");
                 TransitionTo(OrchestratorState.RunningJobs);
                 return;
             }
@@ -174,7 +170,6 @@ public sealed class JobOrchestrator : IDisposable
             CurrentJob = _pendingJobs.Dequeue();
             if (!CurrentJob.CanStart())
             {
-                Svc.Log.Warning($"[Orchestrator] Job '{CurrentJob.Id}' CanStart() returned false, skipping");
                 CurrentJob = null;
                 return;
             }
@@ -187,13 +182,11 @@ public sealed class JobOrchestrator : IDisposable
         switch (CurrentJob.Status)
         {
             case JobStatus.Completed:
-                Svc.Log.Information($"[Orchestrator] Job '{CurrentJob.Id}' completed");
                 CurrentJob = null;
                 break;
 
             case JobStatus.Failed:
                 var error = CurrentJob.StatusText;
-                Svc.Log.Error($"[Orchestrator] Job '{CurrentJob.Id}' failed: {error}");
                 CurrentJob.Stop();
                 CurrentJob = null;
                 Fail(error);

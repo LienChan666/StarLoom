@@ -63,13 +63,11 @@ public sealed class ScripShopItemManager
         {
             ShopItems = [];
             StatusMessage = $"工票物品索引加载失败：{ex.Message}";
-            Svc.Log.Error($"[ScripShopItemManager] Failed to load scrip shop items: {ex}");
         }
         finally
         {
             IsLoading = false;
             _syncLock.Release();
-            Svc.Log.Debug($"[ScripShopItemManager] Loaded {ShopItems.Count} items");
         }
     }
 
@@ -92,7 +90,6 @@ public sealed class ScripShopItemManager
         {
             ShopItems = previousItems;
             StatusMessage = $"刷新工票物品列表失败：{ex.Message}";
-            Svc.Log.Error($"[ScripShopItemManager] Failed to refresh scrip shop items: {ex}");
         }
         finally
         {
@@ -117,9 +114,8 @@ public sealed class ScripShopItemManager
         {
             cacheDocument = await ReadCacheAsync();
         }
-        catch (Exception ex)
+        catch (Exception)
         {
-            Svc.Log.Warning($"[ScripShopItemManager] Failed to parse cache file, rebuilding it: {ex.Message}");
             cacheDocument = new ScripShopCatalogCacheDocument();
         }
 

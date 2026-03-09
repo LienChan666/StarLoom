@@ -42,7 +42,6 @@ public sealed unsafe class CollectableShopAddon
         var index = turnIn.GetItemIndexOf(itemName);
         if (index == -1)
         {
-            Svc.Log.Error($"[CollectableShopAddon] Item '{itemName}' not found in current collectable tab");
             return;
         }
 
