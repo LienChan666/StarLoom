@@ -15,7 +15,7 @@ internal sealed class HomeHeaderPanel
 
     public void Draw(Vector2 size)
     {
-        using var _ = GamePanelStyle.BeginPanel("##HomeHeaderPanel", size, GamePanelStyle.Accent);
+        using var _ = GamePanelStyle.BeginPanel("##HomeHeaderPanel", size, GamePanelStyle.BorderAccent, GamePanelStyle.Accent);
         if (!ImGui.BeginTable("##HomeHeaderLayout", 2, ImGuiTableFlags.SizingStretchProp))
             return;
 
@@ -33,9 +33,11 @@ internal sealed class HomeHeaderPanel
 
     private void DrawSummary()
     {
+        ImGui.SetWindowFontScale(1.3f);
         ImGui.PushStyleColor(ImGuiCol.Text, GamePanelStyle.Accent);
         ImGui.TextUnformatted("Starloom");
         ImGui.PopStyleColor();
+        ImGui.SetWindowFontScale(1.0f);
 
         ImGui.TextUnformatted("收藏品提交 / 工票兑换控制台");
         GamePanelStyle.DrawHint("把流程控制、运行状态与兑换队列聚合到一套更接近 FF14 插件的深色工具面板中。");
@@ -43,9 +45,11 @@ internal sealed class HomeHeaderPanel
 
     private void DrawBadges()
     {
-        var stateColor = _plugin.IsAutomationBusy ? GamePanelStyle.Warning : GamePanelStyle.Success;
-        GamePanelStyle.DrawInlineBadge("调度器", _plugin.GetOrchestratorStateText(), stateColor);
-        GamePanelStyle.DrawInlineBadge("当前任务", _plugin.GetCurrentJobDisplayName(), GamePanelStyle.Accent);
-        GamePanelStyle.DrawInlineBadge("当前清单", _plugin.Config.ArtisanListId.ToString(), GamePanelStyle.AccentSoft);
+        var stateColor = _plugin.IsAutomationBusy ? GamePanelStyle.Gold : GamePanelStyle.Success;
+        GamePanelStyle.DrawPillBadge($"调度器 · {_plugin.GetOrchestratorStateText()}", stateColor);
+        ImGui.SameLine(0f, GamePanelStyle.Spacing.Sm);
+        GamePanelStyle.DrawPillBadge($"当前任务 · {_plugin.GetCurrentJobDisplayName()}", GamePanelStyle.Accent);
+        ImGui.SameLine(0f, GamePanelStyle.Spacing.Sm);
+        GamePanelStyle.DrawPillBadge($"当前清单 · {_plugin.Config.ArtisanListId}", GamePanelStyle.AccentSoft);
     }
 }

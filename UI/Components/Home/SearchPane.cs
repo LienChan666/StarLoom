@@ -25,13 +25,39 @@ internal sealed class SearchPane
 
     public void Draw(Vector2 size)
     {
-        using var _ = GamePanelStyle.BeginPanel("##SearchPane", size, GamePanelStyle.AccentSoft);
+        using var _ = GamePanelStyle.BeginPanel("##SearchPane", size, GamePanelStyle.BorderSubtle);
         GamePanelStyle.DrawPanelHeader("搜索工票物品", "从制作工票目录中搜索目标并加入当前兑换队列。");
 
         GamePanelStyle.DrawSettingLabel("名称筛选");
+
+        ImGui.PushStyleColor(ImGuiCol.FrameBg, GamePanelStyle.Layer0);
+        ImGui.PushStyleColor(ImGuiCol.FrameBgHovered, GamePanelStyle.Layer0);
+        ImGui.PushStyleColor(ImGuiCol.FrameBgActive, GamePanelStyle.Layer0);
+        ImGui.PushStyleColor(ImGuiCol.Border, GamePanelStyle.BorderSubtle);
+        ImGui.PushStyleVar(ImGuiStyleVar.FrameRounding, 6f);
+        ImGui.PushStyleVar(ImGuiStyleVar.FrameBorderSize, 1f);
+
+        ImGui.PushStyleColor(ImGuiCol.Text, GamePanelStyle.TextSecond);
+        ImGui.TextUnformatted(">");
+        ImGui.PopStyleColor();
+        ImGui.SameLine();
+
         ImGui.SetNextItemWidth(-1f);
         ImGui.InputText("##ItemSearch", ref _itemSearch, 128);
-        ImGui.Separator();
+
+        if (ImGui.IsItemActive())
+        {
+            ImGui.GetWindowDrawList().AddRect(
+                ImGui.GetItemRectMin(),
+                ImGui.GetItemRectMax(),
+                ImGui.GetColorU32(GamePanelStyle.Accent),
+                6f, ImDrawFlags.RoundCornersAll, 1f);
+        }
+
+        ImGui.PopStyleVar(2);
+        ImGui.PopStyleColor(4);
+
+        GamePanelStyle.DrawGradientSeparator();
 
         if (ScripShopItemManager.IsLoading)
         {
@@ -42,7 +68,7 @@ internal sealed class SearchPane
         var allItems = ScripShopItemManager.ShopItems;
         if (allItems.Count == 0)
         {
-            GamePanelStyle.DrawHint("未加载到工票物品索引，可在设置页的“物品索引”中点击“刷新物品列表”。");
+            GamePanelStyle.DrawHint("未加载到工票物品索引，可在设置页的\u201c物品索引\u201d中点击\u201c刷新物品列表\u201d。");
             return;
         }
 
@@ -50,16 +76,25 @@ internal sealed class SearchPane
         var filteredItems = GetVisibleItems();
         var configuredItemIds = GetConfiguredItemIds();
 
-        ImGui.TextDisabled($"显示 {filteredItems.Count} 条结果（最多 {MaxVisibleItems} 条）");
-        ImGui.Separator();
+        ImGui.PushStyleColor(ImGuiCol.Text, GamePanelStyle.TextMuted);
+        var countText = $"显示 {filteredItems.Count} 条结果（最多 {MaxVisibleItems} 条）";
+        var countWidth = ImGui.CalcTextSize(countText).X;
+        ImGui.SetCursorPosX(ImGui.GetContentRegionAvail().X - countWidth + ImGui.GetCursorPosX());
+        ImGui.TextUnformatted(countText);
+        ImGui.PopStyleColor();
 
         var tableFlags = ImGuiTableFlags.RowBg
             | ImGuiTableFlags.Borders
             | ImGuiTableFlags.Resizable
             | ImGuiTableFlags.SizingStretchProp;
 
+        GamePanelStyle.PushTableStyle();
+
         if (!ImGui.BeginTable("##SearchTable", 4, tableFlags))
+        {
+            GamePanelStyle.PopTableStyle();
             return;
+        }
 
             ImGui.TableSetupColumn("名称", ImGuiTableColumnFlags.WidthStretch, 0.50f);
             ImGui.TableSetupColumn("工票", ImGuiTableColumnFlags.WidthStretch, 0.22f);
@@ -85,14 +120,21 @@ internal sealed class SearchPane
 
             ImGui.TableSetColumnIndex(3);
             ImGui.BeginDisabled(alreadyAdded);
+            ImGui.PushStyleColor(ImGuiCol.Button, GamePanelStyle.Tint(GamePanelStyle.AccentSoft, 0.6f));
+            ImGui.PushStyleColor(ImGuiCol.ButtonHovered, GamePanelStyle.Tint(GamePanelStyle.Accent, 0.7f));
+            ImGui.PushStyleColor(ImGuiCol.ButtonActive, GamePanelStyle.Tint(GamePanelStyle.Accent, 0.9f));
+            ImGui.PushStyleVar(ImGuiStyleVar.FrameRounding, 6f);
             if (ImGui.SmallButton("+"))
                 AddPurchaseItem(item);
+            ImGui.PopStyleVar();
+            ImGui.PopStyleColor(3);
             ImGui.EndDisabled();
 
             ImGui.PopID();
         }
 
         ImGui.EndTable();
+        GamePanelStyle.PopTableStyle();
     }
 
     private void AddPurchaseItem(ScripShopItem item)

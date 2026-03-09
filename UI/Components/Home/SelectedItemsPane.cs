@@ -17,7 +17,7 @@ internal sealed class SelectedItemsPane
 
     public void Draw(Vector2 size)
     {
-        using var _ = GamePanelStyle.BeginPanel("##SelectedPane", size, GamePanelStyle.AccentSoft);
+        using var _ = GamePanelStyle.BeginPanel("##SelectedPane", size, GamePanelStyle.BorderSubtle);
 
         var totalQuantity = _plugin.Config.ScripShopItems.Sum(item => item.Quantity);
         GamePanelStyle.DrawPanelHeader("已选兑换列表", $"共 {_plugin.Config.ScripShopItems.Count} 项，目标数量合计 {totalQuantity}。");
@@ -36,6 +36,8 @@ internal sealed class SelectedItemsPane
             | ImGuiTableFlags.Borders
             | ImGuiTableFlags.Resizable
             | ImGuiTableFlags.SizingStretchProp;
+
+        GamePanelStyle.PushTableStyle();
 
         if (ImGui.BeginTable("##SelectedTable", 6, tableFlags))
         {
@@ -65,35 +67,42 @@ internal sealed class SelectedItemsPane
 
                 ImGui.TableSetColumnIndex(3);
                 var quantity = item.Quantity;
-                var previousQuantity = quantity;
                 ImGui.SetNextItemWidth(-1);
                 if (ImGui.InputInt("##Quantity", ref quantity, 0, 0))
                     item.Quantity = Math.Max(1, quantity);
 
-                if (ImGui.IsItemDeactivatedAfterEdit() && item.Quantity != previousQuantity)
+                if (ImGui.IsItemDeactivatedAfterEdit())
                     _plugin.SaveConfig();
 
                 ImGui.TableSetColumnIndex(4);
+                ImGui.PushStyleColor(ImGuiCol.Text, GamePanelStyle.TextSecond);
                 ImGui.BeginDisabled(index == 0);
-                if (ImGui.SmallButton("↑"))
+                if (ImGui.SmallButton("\u2191"))
                     moveUpIndex = index;
                 ImGui.EndDisabled();
 
                 ImGui.SameLine();
                 ImGui.BeginDisabled(index == _plugin.Config.ScripShopItems.Count - 1);
-                if (ImGui.SmallButton("↓"))
+                if (ImGui.SmallButton("\u2193"))
                     moveDownIndex = index;
                 ImGui.EndDisabled();
+                ImGui.PopStyleColor();
 
                 ImGui.TableSetColumnIndex(5);
-                if (ImGui.SmallButton("×"))
+                ImGui.PushStyleColor(ImGuiCol.Button, GamePanelStyle.Tint(GamePanelStyle.Danger, 0.3f));
+                ImGui.PushStyleColor(ImGuiCol.ButtonHovered, GamePanelStyle.Tint(GamePanelStyle.Danger, 0.5f));
+                ImGui.PushStyleColor(ImGuiCol.ButtonActive, GamePanelStyle.Tint(GamePanelStyle.Danger, 0.7f));
+                if (ImGui.SmallButton("\u00d7"))
                     removeIndex = index;
+                ImGui.PopStyleColor(3);
 
                 ImGui.PopID();
             }
 
             ImGui.EndTable();
         }
+
+        GamePanelStyle.PopTableStyle();
 
         if (removeIndex.HasValue)
         {

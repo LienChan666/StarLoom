@@ -35,18 +35,18 @@ internal sealed class SettingsTab
     public void Draw()
     {
         var availableSize = ImGui.GetContentRegionAvail();
-        var spacing = ImGui.GetStyle().ItemSpacing.X;
+        var spacing = GamePanelStyle.Spacing.Md;
         var navigationWidth = Math.Clamp(availableSize.X * 0.24f, 210f, 250f);
         var contentWidth = Math.Max(0f, availableSize.X - navigationWidth - spacing);
 
-        using (var navigationPanel = GamePanelStyle.BeginPanel("##SettingsSidebar", new Vector2(navigationWidth, availableSize.Y), GamePanelStyle.AccentSoft))
+        using (var navigationPanel = GamePanelStyle.BeginPanel("##SettingsSidebar", new Vector2(navigationWidth, availableSize.Y), GamePanelStyle.BorderSubtle, GamePanelStyle.Accent))
         {
             DrawSidebar();
         }
 
-        ImGui.SameLine();
+        ImGui.SameLine(0f, spacing);
 
-        using (var contentPanel = GamePanelStyle.BeginPanel("##SettingsContent", new Vector2(contentWidth, availableSize.Y), GamePanelStyle.PanelBorder))
+        using (var contentPanel = GamePanelStyle.BeginPanel("##SettingsContent", new Vector2(contentWidth, availableSize.Y), GamePanelStyle.BorderSubtle))
         {
             DrawSelectedSection();
             ImGui.Spacing();
@@ -56,33 +56,51 @@ internal sealed class SettingsTab
 
     private void DrawSidebar()
     {
-        GamePanelStyle.DrawPanelHeader("系统设置", "选择需要调整的功能模块。\n布局更接近游戏内插件目录，而不是表单堆叠页。");
+        GamePanelStyle.DrawPanelHeader("系统设置", "选择需要调整的功能模块。");
 
-        DrawSidebarItem(SettingsSection.Shop, "商店设置", "选择自动交互使用的收藏品商店。");
-        DrawSidebarItem(SettingsSection.CraftPoint, "制作点设置", "管理默认返回点与返回点列表。");
-        DrawSidebarItem(SettingsSection.Purchase, "购买设置", "控制自动购买、工票预留与背包保护。");
-        DrawSidebarItem(SettingsSection.Display, "界面设置", "管理状态悬浮窗等显示项。");
-        DrawSidebarItem(SettingsSection.Catalog, "物品索引", "刷新外部缓存并查看当前索引状态。");
+        DrawSidebarItem(SettingsSection.Shop, "商店设置");
+        DrawSidebarItem(SettingsSection.CraftPoint, "制作点设置");
+        DrawSidebarItem(SettingsSection.Purchase, "购买设置");
+        DrawSidebarItem(SettingsSection.Display, "界面设置");
+        DrawSidebarItem(SettingsSection.Catalog, "物品索引");
     }
 
-    private void DrawSidebarItem(SettingsSection section, string title, string description)
+    private void DrawSidebarItem(SettingsSection section, string title)
     {
         var isSelected = _selectedSection == section;
+
         if (isSelected)
         {
-            ImGui.PushStyleColor(ImGuiCol.Header, GamePanelStyle.Tint(GamePanelStyle.AccentSoft, 0.75f));
-            ImGui.PushStyleColor(ImGuiCol.HeaderHovered, GamePanelStyle.Tint(GamePanelStyle.Accent, 0.75f));
-            ImGui.PushStyleColor(ImGuiCol.HeaderActive, GamePanelStyle.Tint(GamePanelStyle.Accent, 0.90f));
+            ImGui.PushStyleColor(ImGuiCol.Header, GamePanelStyle.Layer2);
+            ImGui.PushStyleColor(ImGuiCol.HeaderHovered, GamePanelStyle.Layer2);
+            ImGui.PushStyleColor(ImGuiCol.HeaderActive, GamePanelStyle.Layer2);
+            ImGui.PushStyleColor(ImGuiCol.Text, GamePanelStyle.TextPrimary);
+        }
+        else
+        {
+            ImGui.PushStyleColor(ImGuiCol.Header, new Vector4(0, 0, 0, 0));
+            ImGui.PushStyleColor(ImGuiCol.HeaderHovered, new Vector4(GamePanelStyle.Layer2.X, GamePanelStyle.Layer2.Y, GamePanelStyle.Layer2.Z, 0.5f));
+            ImGui.PushStyleColor(ImGuiCol.HeaderActive, GamePanelStyle.Layer2);
+            ImGui.PushStyleColor(ImGuiCol.Text, GamePanelStyle.TextSecond);
         }
 
         if (ImGui.Selectable($"{title}##{section}", isSelected, ImGuiSelectableFlags.None, new Vector2(-1f, 28f)))
             _selectedSection = section;
 
         if (isSelected)
-            ImGui.PopStyleColor(3);
+        {
+            var drawList = ImGui.GetWindowDrawList();
+            var min = ImGui.GetItemRectMin();
+            var max = ImGui.GetItemRectMax();
+            drawList.AddRectFilled(
+                new Vector2(min.X, min.Y),
+                new Vector2(min.X + 3f, max.Y),
+                ImGui.GetColorU32(GamePanelStyle.Accent),
+                2f);
+        }
 
-        GamePanelStyle.DrawHint(description);
-        ImGui.Spacing();
+        ImGui.PopStyleColor(4);
+        ImGui.Dummy(new Vector2(0, GamePanelStyle.Spacing.Xs));
     }
 
     private void DrawSelectedSection()
