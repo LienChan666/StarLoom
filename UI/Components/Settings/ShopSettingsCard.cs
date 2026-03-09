@@ -1,4 +1,4 @@
-using Dalamud.Bindings.ImGui;
+﻿using Dalamud.Bindings.ImGui;
 using Starloom.Data;
 using Starloom.UI.Components.Shared;
 using System;
@@ -17,7 +17,7 @@ internal sealed class ShopSettingsCard
 
         ImGui.TableNextRow();
         ImGui.TableSetColumnIndex(0);
-        GamePanelStyle.DrawSettingLabel(P.Localization.Get("settings.shop.collectable_shop"));
+        ImGui.TextUnformatted(P.Localization.Get("settings.shop.collectable_shop"));
 
         ImGui.TableSetColumnIndex(1);
         ImGui.SetNextItemWidth(Math.Min(320f, ImGui.GetContentRegionAvail().X));

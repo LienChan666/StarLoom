@@ -1,4 +1,4 @@
-using Dalamud.Bindings.ImGui;
+﻿using Dalamud.Bindings.ImGui;
 using Starloom.UI.Components.Shared;
 using System;
 
@@ -14,7 +14,7 @@ internal sealed class DisplaySettingsCard
         var showStatusOverlay = C.ShowStatusOverlay;
         ImGui.TableNextRow();
         ImGui.TableSetColumnIndex(0);
-        GamePanelStyle.DrawSettingLabel(P.Localization.Get("settings.display.overlay"));
+        ImGui.TextUnformatted(P.Localization.Get("settings.display.overlay"));
         ImGui.TableSetColumnIndex(1);
         if (ImGui.Checkbox($"{P.Localization.Get("settings.display.overlay_toggle")}##DisplayOverlay", ref showStatusOverlay))
         {
@@ -25,7 +25,7 @@ internal sealed class DisplaySettingsCard
         var uiLanguage = C.UiLanguage;
         ImGui.TableNextRow();
         ImGui.TableSetColumnIndex(0);
-        GamePanelStyle.DrawSettingLabel(P.Localization.Get("settings.display.language"));
+        ImGui.TextUnformatted(P.Localization.Get("settings.display.language"));
         ImGui.TableSetColumnIndex(1);
         ImGui.SetNextItemWidth(Math.Min(160f, ImGui.GetContentRegionAvail().X));
         if (ImGui.BeginCombo("##UiLanguage", P.Localization.Get($"settings.display.language.{uiLanguage}")))

@@ -1,4 +1,4 @@
-using Dalamud.Bindings.ImGui;
+﻿using Dalamud.Bindings.ImGui;
 using Starloom.Data;
 using Starloom.Services;
 using Starloom.UI.Components.Shared;
@@ -36,7 +36,7 @@ internal sealed class CraftPointSettingsCard
 
         ImGui.TableNextRow();
         ImGui.TableSetColumnIndex(0);
-        GamePanelStyle.DrawSettingLabel(P.Localization.Get("settings.craft_point.list"));
+        ImGui.TextUnformatted(P.Localization.Get("settings.craft_point.list"));
         ImGui.TableSetColumnIndex(1);
         if (ImGui.Button($"{P.Localization.Get("settings.craft_point.refresh_button")}##RefreshReturnPoints", new Vector2(140f, 0f)))
             RefreshReturnPointsCache();
@@ -49,13 +49,13 @@ internal sealed class CraftPointSettingsCard
 
         ImGui.TableNextRow();
         ImGui.TableSetColumnIndex(0);
-        GamePanelStyle.DrawSettingLabel(P.Localization.Get("settings.craft_point.list_status"));
+        ImGui.TextUnformatted(P.Localization.Get("settings.craft_point.list_status"));
         ImGui.TableSetColumnIndex(1);
         ImGui.TextWrapped(P.Localization.Format(returnPointsCacheStatusKey, returnPointsCacheStatusArgs));
 
         ImGui.TableNextRow();
         ImGui.TableSetColumnIndex(0);
-        GamePanelStyle.DrawSettingLabel(P.Localization.Get("settings.craft_point.default_point"));
+        ImGui.TextUnformatted(P.Localization.Get("settings.craft_point.default_point"));
         ImGui.TableSetColumnIndex(1);
         ImGui.SetNextItemWidth(Math.Min(320f, ImGui.GetContentRegionAvail().X));
         if (ImGui.BeginCombo("##DefaultCraftReturnPoint", preview))
@@ -79,7 +79,7 @@ internal sealed class CraftPointSettingsCard
 
         ImGui.TableNextRow();
         ImGui.TableSetColumnIndex(0);
-        GamePanelStyle.DrawSettingLabel(P.Localization.Get("settings.craft_point.current_status"));
+        ImGui.TextUnformatted(P.Localization.Get("settings.craft_point.current_status"));
         ImGui.TableSetColumnIndex(1);
         if (configuredPoint.IsInn)
         {
@@ -91,7 +91,7 @@ internal sealed class CraftPointSettingsCard
         }
         else if (!hasValidConfiguredPoint)
         {
-            ImGui.TextColored(GamePanelStyle.Danger, P.Localization.Get("settings.craft_point.current_invalid"));
+            ImGui.TextColored(new Vector4(1f, 0.35f, 0.35f, 1f), P.Localization.Get("settings.craft_point.current_invalid"));
         }
         else
         {

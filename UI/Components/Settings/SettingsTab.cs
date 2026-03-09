@@ -1,12 +1,13 @@
-using Dalamud.Bindings.ImGui;
+﻿using Dalamud.Bindings.ImGui;
 using Starloom.UI.Components.Shared;
-using System;
 using System.Numerics;
 
 namespace Starloom.UI.Components.Settings;
 
 internal sealed class SettingsTab
 {
+    private const float PaneSpacing = 12f;
+
     private enum SettingsSection
     {
         Shop,
@@ -24,29 +25,25 @@ internal sealed class SettingsTab
     public void Draw()
     {
         var availableSize = ImGui.GetContentRegionAvail();
-        var spacing = GamePanelStyle.Spacing.Md;
-        var navigationWidth = Math.Clamp(availableSize.X * 0.24f, 210f, 250f);
-        var contentWidth = Math.Max(0f, availableSize.X - navigationWidth - spacing);
+        var layout = LayoutMetrics.CreateSettings(availableSize.X, PaneSpacing);
 
-        using (GamePanelStyle.BeginPanel("##SettingsSidebar", new Vector2(navigationWidth, availableSize.Y), GamePanelStyle.BorderSubtle, GamePanelStyle.Accent))
+        if (ImGui.BeginChild("##SettingsSidebar", new Vector2(layout.NavigationWidth, availableSize.Y), true))
         {
             DrawSidebar();
+            ImGui.EndChild();
         }
 
-        ImGui.SameLine(0f, spacing);
+        ImGui.SameLine(0f, PaneSpacing);
 
-        using (GamePanelStyle.BeginPanel("##SettingsContent", new Vector2(contentWidth, availableSize.Y), GamePanelStyle.BorderSubtle))
+        if (ImGui.BeginChild("##SettingsContent", new Vector2(layout.ContentWidth, availableSize.Y), true))
         {
             DrawSelectedSection();
-            ImGui.Spacing();
-            GamePanelStyle.DrawHint(P.Localization.Get("settings.footer.hint"));
+            ImGui.EndChild();
         }
     }
 
     private void DrawSidebar()
     {
-        GamePanelStyle.DrawPanelHeader(P.Localization.Get("settings.sidebar.title"), P.Localization.Get("settings.sidebar.description"));
-
         DrawSidebarItem(SettingsSection.Shop, P.Localization.Get("settings.sidebar.shop"));
         DrawSidebarItem(SettingsSection.CraftPoint, P.Localization.Get("settings.sidebar.craft_point"));
         DrawSidebarItem(SettingsSection.Purchase, P.Localization.Get("settings.sidebar.purchase"));
@@ -56,39 +53,10 @@ internal sealed class SettingsTab
     private void DrawSidebarItem(SettingsSection section, string title)
     {
         var isSelected = selectedSection == section;
-
-        if (isSelected)
-        {
-            ImGui.PushStyleColor(ImGuiCol.Header, GamePanelStyle.Layer2);
-            ImGui.PushStyleColor(ImGuiCol.HeaderHovered, GamePanelStyle.Layer2);
-            ImGui.PushStyleColor(ImGuiCol.HeaderActive, GamePanelStyle.Layer2);
-            ImGui.PushStyleColor(ImGuiCol.Text, GamePanelStyle.TextPrimary);
-        }
-        else
-        {
-            ImGui.PushStyleColor(ImGuiCol.Header, new Vector4(0, 0, 0, 0));
-            ImGui.PushStyleColor(ImGuiCol.HeaderHovered, new Vector4(GamePanelStyle.Layer2.X, GamePanelStyle.Layer2.Y, GamePanelStyle.Layer2.Z, 0.5f));
-            ImGui.PushStyleColor(ImGuiCol.HeaderActive, GamePanelStyle.Layer2);
-            ImGui.PushStyleColor(ImGuiCol.Text, GamePanelStyle.TextSecond);
-        }
-
         if (ImGui.Selectable($"{title}##{section}", isSelected, ImGuiSelectableFlags.None, new Vector2(-1f, 28f)))
             selectedSection = section;
 
-        if (isSelected)
-        {
-            var drawList = ImGui.GetWindowDrawList();
-            var min = ImGui.GetItemRectMin();
-            var max = ImGui.GetItemRectMax();
-            drawList.AddRectFilled(
-                new Vector2(min.X, min.Y),
-                new Vector2(min.X + 3f, max.Y),
-                ImGui.GetColorU32(GamePanelStyle.Accent),
-                2f);
-        }
-
-        ImGui.PopStyleColor(4);
-        ImGui.Dummy(new Vector2(0, GamePanelStyle.Spacing.Xs));
+        ImGui.Spacing();
     }
 
     private void DrawSelectedSection()
@@ -96,32 +64,16 @@ internal sealed class SettingsTab
         switch (selectedSection)
         {
             case SettingsSection.Shop:
-                SettingsCard.Draw(
-                    "##SettingsShopCard",
-                    P.Localization.Get("settings.card.shop.title"),
-                    P.Localization.Get("settings.card.shop.description"),
-                    shopSettingsCard.Draw);
+                shopSettingsCard.Draw();
                 break;
             case SettingsSection.CraftPoint:
-                SettingsCard.Draw(
-                    "##SettingsCraftPointCard",
-                    P.Localization.Get("settings.card.craft_point.title"),
-                    P.Localization.Get("settings.card.craft_point.description"),
-                    craftPointSettingsCard.Draw);
+                craftPointSettingsCard.Draw();
                 break;
             case SettingsSection.Purchase:
-                SettingsCard.Draw(
-                    "##SettingsPurchaseCard",
-                    P.Localization.Get("settings.card.purchase.title"),
-                    P.Localization.Get("settings.card.purchase.description"),
-                    purchaseSettingsCard.Draw);
+                purchaseSettingsCard.Draw();
                 break;
             case SettingsSection.Display:
-                SettingsCard.Draw(
-                    "##SettingsDisplayCard",
-                    P.Localization.Get("settings.card.display.title"),
-                    P.Localization.Get("settings.card.display.description"),
-                    displaySettingsCard.Draw);
+                displaySettingsCard.Draw();
                 break;
         }
     }

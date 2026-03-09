@@ -1,4 +1,4 @@
-using Dalamud.Bindings.ImGui;
+﻿using Dalamud.Bindings.ImGui;
 using Starloom.UI.Components.Shared;
 using System;
 using System.Linq;
@@ -10,16 +10,22 @@ internal sealed class SelectedItemsPane
 {
     public void Draw(Vector2 size)
     {
-        using var _ = GamePanelStyle.BeginPanel("##SelectedPane", size, GamePanelStyle.BorderSubtle);
+        if (!ImGui.BeginChild("##SelectedPane", size, true))
+        {
+            ImGui.EndChild();
+            return;
+        }
 
         var totalQuantity = C.ScripShopItems.Sum(item => item.Quantity);
-        GamePanelStyle.DrawPanelHeader(
-            P.Localization.Get("home.selected.title"),
-            P.Localization.Format("home.selected.description", C.ScripShopItems.Count, totalQuantity));
+        ImGui.TextUnformatted(P.Localization.Get("home.selected.title"));
+        ImGui.SameLine();
+        ImGui.TextDisabled($"{C.ScripShopItems.Count} / {totalQuantity}");
+        ImGui.Separator();
 
         if (C.ScripShopItems.Count == 0)
         {
-            GamePanelStyle.DrawHint(P.Localization.Get("home.selected.empty_hint"));
+            ImGui.TextDisabled(P.Localization.Get("home.selected.empty_hint"));
+            ImGui.EndChild();
             return;
         }
 
@@ -30,11 +36,10 @@ internal sealed class SelectedItemsPane
         var tableFlags = ImGuiTableFlags.RowBg
             | ImGuiTableFlags.Borders
             | ImGuiTableFlags.Resizable
-            | ImGuiTableFlags.SizingStretchProp;
+            | ImGuiTableFlags.SizingStretchProp
+            | ImGuiTableFlags.ScrollY;
 
-        GamePanelStyle.PushTableStyle();
-
-        if (ImGui.BeginTable("##SelectedTable", 6, tableFlags))
+        if (ImGui.BeginTable("##SelectedTable", 6, tableFlags, new Vector2(0f, -1f)))
         {
             ImGui.TableSetupColumn(P.Localization.Get("home.selected.table.name"), ImGuiTableColumnFlags.WidthStretch, 0.34f);
             ImGui.TableSetupColumn(P.Localization.Get("home.selected.table.currency"), ImGuiTableColumnFlags.WidthStretch, 0.18f);
@@ -62,7 +67,7 @@ internal sealed class SelectedItemsPane
 
                 ImGui.TableSetColumnIndex(3);
                 var quantity = item.Quantity;
-                ImGui.SetNextItemWidth(-1);
+                ImGui.SetNextItemWidth(-1f);
                 if (ImGui.InputInt("##Quantity", ref quantity, 0, 0))
                     item.Quantity = Math.Max(1, quantity);
 
@@ -70,26 +75,20 @@ internal sealed class SelectedItemsPane
                     P.ConfigStore.Save();
 
                 ImGui.TableSetColumnIndex(4);
-                ImGui.PushStyleColor(ImGuiCol.Text, GamePanelStyle.TextSecond);
                 ImGui.BeginDisabled(index == 0);
-                if (ImGui.SmallButton("↑##MoveUp"))
+                if (ImGui.SmallButton("^##MoveUp"))
                     moveUpIndex = index;
                 ImGui.EndDisabled();
 
                 ImGui.SameLine();
                 ImGui.BeginDisabled(index == C.ScripShopItems.Count - 1);
-                if (ImGui.SmallButton("↓##MoveDown"))
+                if (ImGui.SmallButton("v##MoveDown"))
                     moveDownIndex = index;
                 ImGui.EndDisabled();
-                ImGui.PopStyleColor();
 
                 ImGui.TableSetColumnIndex(5);
-                ImGui.PushStyleColor(ImGuiCol.Button, GamePanelStyle.Tint(GamePanelStyle.Danger, 0.3f));
-                ImGui.PushStyleColor(ImGuiCol.ButtonHovered, GamePanelStyle.Tint(GamePanelStyle.Danger, 0.5f));
-                ImGui.PushStyleColor(ImGuiCol.ButtonActive, GamePanelStyle.Tint(GamePanelStyle.Danger, 0.7f));
-                if (ImGui.SmallButton("×##Remove"))
+                if (ImGui.SmallButton("x##Remove"))
                     removeIndex = index;
-                ImGui.PopStyleColor(3);
 
                 ImGui.PopID();
             }
@@ -97,7 +96,7 @@ internal sealed class SelectedItemsPane
             ImGui.EndTable();
         }
 
-        GamePanelStyle.PopTableStyle();
+        ImGui.EndChild();
 
         if (removeIndex.HasValue)
         {
