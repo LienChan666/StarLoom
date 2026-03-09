@@ -19,5 +19,6 @@ public class ScripShopItem
     public int TierRank { get; set; }
 
     [JsonIgnore]
+    [Newtonsoft.Json.JsonIgnore]
     public uint ItemId => ItemID;
 }

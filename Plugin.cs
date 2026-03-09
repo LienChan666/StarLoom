@@ -39,7 +39,7 @@ public sealed class Plugin : IDalamudPlugin
         ConfigurationStore.EnsureDefaults();
 
         Orchestrator = new JobOrchestrator(ArtisanIPC, ServiceRegistry.CreateJobContext());
-        ManagedSession = new ManagedArtisanSession(ArtisanIPC, Orchestrator, Config, ServiceRegistry.WorkflowBuilder.CreateConfiguredWorkflow);
+        ManagedSession = new ManagedArtisanSession(ArtisanIPC, Orchestrator, Config, ServiceRegistry.WorkflowBuilder.CreateConfiguredWorkflow, ServiceRegistry.WorkflowValidator);
         AutomationController = new AutomationController(Config, Navigation, Orchestrator, ManagedSession, ServiceRegistry.WorkflowBuilder, ServiceRegistry.WorkflowValidator);
         AutomationStatusPresenter = new AutomationStatusPresenter(Orchestrator, ManagedSession);
         Ui = new PluginUi(this);

@@ -44,9 +44,7 @@ public sealed unsafe class ReturnToCraftPointJob : IAutomationJob
     public JobStatus Status { get; private set; } = JobStatus.Idle;
 
     public bool CanStart()
-        => !(Plugin.P.Config.FreeSlotThreshold > 0
-            && InventoryService.GetFreeSlotCount() < Plugin.P.Config.FreeSlotThreshold
-            && InventoryService.HasCollectableTurnIns());
+        => true;
 
     public void Start(JobContext context)
     {

@@ -26,10 +26,9 @@ public sealed class WorkflowBuilder
         };
 
         if (ShouldRunConfiguredPurchaseWorkflow())
-        {
             jobs.Add(new ScripPurchaseJob());
-            jobs.Add(BuildPostPurchaseActionJob());
-        }
+
+        jobs.Add(BuildPostPurchaseActionJob());
 
         return jobs;
     }
