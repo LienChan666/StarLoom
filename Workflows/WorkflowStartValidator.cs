@@ -1,19 +1,18 @@
 using ECommons.DalamudServices;
 using StarLoom.Services;
 using StarLoom.Services.Interfaces;
-using System.Linq;
 
 namespace StarLoom.Workflows;
 
 public sealed class WorkflowStartValidator
 {
     private readonly Configuration _config;
-    private readonly IInventoryService _inventory;
+    private readonly PendingPurchaseResolver _pendingPurchaseResolver;
 
     public WorkflowStartValidator(Configuration config, IInventoryService inventory)
     {
         _config = config;
-        _inventory = inventory;
+        _pendingPurchaseResolver = new PendingPurchaseResolver(config, inventory);
     }
 
     public bool CanStartCollectableWorkflow(out string errorMessage)
@@ -36,21 +35,15 @@ public sealed class WorkflowStartValidator
             return false;
         }
 
-        var validPurchaseItems = _config.ScripShopItems
-            .Where(item => item.Item != null && item.Quantity > 0)
-            .ToList();
+        var pendingPurchaseItems = _pendingPurchaseResolver.Resolve();
 
-        if (validPurchaseItems.Count == 0)
+        if (_config.ScripShopItems.TrueForAll(item => item.Item == null || item.Quantity <= 0))
         {
             errorMessage = "The purchase list is empty or has no valid target quantities.";
             return false;
         }
 
-        var pending = validPurchaseItems
-            .Where(item => _inventory.GetInventoryItemCount(item.Item!.ItemId) < item.Quantity)
-            .ToList();
-
-        if (pending.Count == 0)
+        if (pendingPurchaseItems.Count == 0)
         {
             errorMessage = "All configured purchase items already reached their target quantities.";
             return false;

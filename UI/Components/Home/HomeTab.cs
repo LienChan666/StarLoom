@@ -1,4 +1,5 @@
-using Dalamud.Bindings.ImGui;
+﻿using Dalamud.Bindings.ImGui;
+using StarLoom.UI;
 using StarLoom.UI.Components.Shared;
 using System;
 using System.Numerics;
@@ -7,19 +8,19 @@ namespace StarLoom.UI.Components.Home;
 
 internal sealed class HomeTab
 {
-    private readonly Plugin _plugin;
+    private readonly IPluginUiFacade _ui;
     private readonly HomeHeaderPanel _headerPanel;
     private readonly HomeControlPane _controlPane;
     private readonly SearchPane _searchPane;
     private readonly SelectedItemsPane _selectedItemsPane;
 
-    public HomeTab(Plugin plugin)
+    public HomeTab(IPluginUiFacade ui)
     {
-        _plugin = plugin;
-        _headerPanel = new HomeHeaderPanel(plugin);
-        _controlPane = new HomeControlPane(plugin);
-        _searchPane = new SearchPane(plugin);
-        _selectedItemsPane = new SelectedItemsPane(plugin);
+        _ui = ui;
+        _headerPanel = new HomeHeaderPanel(ui);
+        _controlPane = new HomeControlPane(ui);
+        _searchPane = new SearchPane(ui);
+        _selectedItemsPane = new SelectedItemsPane(ui);
     }
 
     public void Draw()
@@ -42,7 +43,7 @@ internal sealed class HomeTab
         ImGui.SameLine(0f, spacing);
 
         using var _ = GamePanelStyle.BeginPanel("##HomeFlowShell", new Vector2(rightWidth, availableSize.Y), GamePanelStyle.BorderSubtle);
-        GamePanelStyle.DrawPanelHeader(_plugin.GetText("home.flow.title"), _plugin.GetText("home.flow.description"));
+        GamePanelStyle.DrawPanelHeader(_ui.GetText("home.flow.title"), _ui.GetText("home.flow.description"));
 
         var contentHeight = ImGui.GetContentRegionAvail().Y;
         var verticalSpacing = GamePanelStyle.Spacing.Sm;
@@ -54,3 +55,4 @@ internal sealed class HomeTab
         _selectedItemsPane.Draw(new Vector2(0f, remainingHeight));
     }
 }
+

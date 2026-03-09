@@ -1,4 +1,4 @@
-using Dalamud.Interface.Windowing;
+﻿using Dalamud.Interface.Windowing;
 using ECommons.DalamudServices;
 using System;
 
@@ -6,21 +6,21 @@ namespace StarLoom.UI;
 
 public sealed class PluginUi : IDisposable
 {
-    private readonly Plugin _plugin;
+    private readonly IPluginUiFacade _ui;
     private readonly WindowSystem _windowSystem;
     private readonly MainWindow _mainWindow;
     private readonly StatusOverlay _statusOverlay;
 
     public bool IsStatusOverlayVisible => _statusOverlay.IsOpen;
 
-    public PluginUi(Plugin plugin)
+    public PluginUi(IPluginUiFacade ui)
     {
-        _plugin = plugin;
+        _ui = ui;
         _windowSystem = new WindowSystem("Starloom");
-        _mainWindow = new MainWindow(plugin, this);
-        _statusOverlay = new StatusOverlay(plugin)
+        _mainWindow = new MainWindow(ui);
+        _statusOverlay = new StatusOverlay(ui)
         {
-            IsOpen = plugin.Config.ShowStatusOverlay,
+            IsOpen = ui.Config.ShowStatusOverlay,
         };
 
         _windowSystem.AddWindow(_mainWindow);
@@ -43,22 +43,25 @@ public sealed class PluginUi : IDisposable
     public void SetStatusOverlayVisible(bool isVisible)
     {
         _statusOverlay.IsOpen = isVisible;
-        if (_plugin.Config.ShowStatusOverlay == isVisible)
+        if (_ui.Config.ShowStatusOverlay == isVisible)
             return;
 
-        _plugin.Config.ShowStatusOverlay = isVisible;
-        _plugin.SaveConfig();
+        _ui.Config.ShowStatusOverlay = isVisible;
+        _ui.SaveConfig();
     }
 
     private void Draw()
     {
+        if (_statusOverlay.IsOpen != _ui.Config.ShowStatusOverlay)
+            _statusOverlay.IsOpen = _ui.Config.ShowStatusOverlay;
+
         _windowSystem.Draw();
 
-        if (_plugin.Config.ShowStatusOverlay == _statusOverlay.IsOpen)
+        if (_ui.Config.ShowStatusOverlay == _statusOverlay.IsOpen)
             return;
 
-        _plugin.Config.ShowStatusOverlay = _statusOverlay.IsOpen;
-        _plugin.SaveConfig();
+        _ui.Config.ShowStatusOverlay = _statusOverlay.IsOpen;
+        _ui.SaveConfig();
     }
 
     public void Dispose()
@@ -69,3 +72,4 @@ public sealed class PluginUi : IDisposable
         _windowSystem.RemoveAllWindows();
     }
 }
+

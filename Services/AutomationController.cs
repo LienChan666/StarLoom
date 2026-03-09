@@ -16,12 +16,6 @@ public sealed class AutomationController
     private readonly WorkflowBuilder _workflowBuilder;
     private readonly WorkflowStartValidator _workflowValidator;
 
-    private INavigationService Navigation => _navigation;
-    private JobOrchestrator Orchestrator => _orchestrator;
-    private ManagedArtisanSession ManagedSession => _managedSession;
-    private WorkflowBuilder WorkflowBuilder => _workflowBuilder;
-    private WorkflowStartValidator WorkflowValidator => _workflowValidator;
-
     public AutomationController(
         Configuration config,
         INavigationService navigation,
@@ -39,18 +33,17 @@ public sealed class AutomationController
     }
 
     public bool HasConfiguredPurchases => _config.ScripShopItems is { Count: > 0 };
-    public bool HasConfiguredCollectableShop => _config.PreferredCollectableShop != null;
-    public bool IsAutomationBusy => ManagedSession.IsActive || Orchestrator.IsRunning;
+    public bool IsAutomationBusy => _managedSession.IsActive || _orchestrator.IsRunning;
 
     public void StartConfiguredWorkflow()
     {
-        if (!WorkflowValidator.CanStartCollectableWorkflow(out var errorMessage))
+        if (!_workflowValidator.CanStartCollectableWorkflow(out var errorMessage))
         {
             Svc.Log.Error($"[Starloom] Cannot start configured workflow: {errorMessage}");
             return;
         }
 
-        if (!ManagedSession.TryStart())
+        if (!_managedSession.TryStart())
             return;
 
         Svc.Log.Info("[Starloom] Started configured workflow.");
@@ -61,26 +54,26 @@ public sealed class AutomationController
 
     public void StartPurchaseOnly()
     {
-        if (!WorkflowValidator.CanStartPurchaseWorkflow(out var purchaseError))
+        if (!_workflowValidator.CanStartPurchaseWorkflow(out var purchaseError))
         {
             Svc.Log.Error($"[Starloom] Cannot start purchase workflow: {purchaseError}");
             return;
         }
 
-        StartJobs(WorkflowBuilder.CreatePurchaseWorkflow(), "purchase");
+        StartJobs(_workflowBuilder.CreatePurchaseWorkflow(), "purchase");
     }
 
     public void StopAutomation()
     {
         Svc.Log.Info("[Starloom] Stop requested.");
-        if (ManagedSession.IsActive)
+        if (_managedSession.IsActive)
         {
-            ManagedSession.Stop();
+            _managedSession.Stop();
             return;
         }
 
-        if (Orchestrator.IsRunning)
-            Orchestrator.Abort();
+        if (_orchestrator.IsRunning)
+            _orchestrator.Abort();
     }
 
     public void Update()
@@ -88,26 +81,26 @@ public sealed class AutomationController
         if (!Svc.ClientState.IsLoggedIn)
             return;
 
-        Navigation.Update();
-        Orchestrator.Update();
-        ManagedSession.Update();
+        _navigation.Update();
+        _orchestrator.Update();
+        _managedSession.Update();
     }
 
     private void StartJobs(IEnumerable<IAutomationJob> jobs, string actionName)
     {
-        if (!WorkflowValidator.CanStartCollectableWorkflow(out var errorMessage))
+        if (!_workflowValidator.CanStartCollectableWorkflow(out var errorMessage))
         {
             Svc.Log.Error($"[Starloom] Cannot start {actionName}: {errorMessage}");
             return;
         }
 
-        if (ManagedSession.IsActive)
+        if (_managedSession.IsActive)
         {
             Svc.Log.Warning($"[Starloom] Skipped {actionName}: managed session is active.");
             return;
         }
 
-        if (!Orchestrator.TryStart(jobs))
+        if (!_orchestrator.TryStart(jobs))
             return;
 
         Svc.Log.Info($"[Starloom] Started {actionName}.");

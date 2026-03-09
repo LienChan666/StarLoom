@@ -6,12 +6,13 @@ using StarLoom.Core;
 using StarLoom.Data;
 using StarLoom.IPC;
 using StarLoom.Services;
+using StarLoom.Services.Interfaces;
 using System;
 using static ECommons.GenericHelpers;
 
 namespace StarLoom.Jobs;
 
-public sealed unsafe class ReturnToCraftPointJob : IAutomationJob
+public sealed unsafe class ReturnToCraftPointJob : AutomationJobBase
 {
     private readonly TimeSpan _innTeleportTimeout = TimeSpan.FromMinutes(5);
 
@@ -31,23 +32,19 @@ public sealed unsafe class ReturnToCraftPointJob : IAutomationJob
 
     private readonly TimeSpan _actionDelay = TimeSpan.FromMilliseconds(500);
 
-    private JobContext? _context;
     private HousingReturnPoint? _target;
     private ReturnState _state = ReturnState.Idle;
-    private DateTime _lastAction = DateTime.MinValue;
-    private DateTime _stateEnteredAt = DateTime.MinValue;
     private bool _navigationStarted;
     private bool _observedTransition;
 
-    public string Id => "return-to-craft-point";
-    public JobStatus Status { get; private set; } = JobStatus.Idle;
+    public override string Id => "return-to-craft-point";
 
-    public bool CanStart()
+    public override bool CanStart()
         => true;
 
-    public void Start(JobContext context)
+    public override void Start(JobContext context)
     {
-        _context = context;
+        base.Start(context);
         ResetRunState();
 
         var configuredPoint = context.Config.DefaultCraftReturnPoint ?? HousingReturnPoint.CreateInn();
@@ -58,13 +55,12 @@ public sealed unsafe class ReturnToCraftPointJob : IAutomationJob
         }
 
         _target = resolvedPoint;
-        Status = JobStatus.Running;
         TransitionTo(ReturnState.Teleporting);
     }
 
-    public void Update()
+    public override void Update()
     {
-        if (Status != JobStatus.Running || _context == null || _target == null)
+        if (Status != JobStatus.Running || Context == null || _target == null)
             return;
 
         try
@@ -105,26 +101,25 @@ public sealed unsafe class ReturnToCraftPointJob : IAutomationJob
         }
     }
 
-    public void Stop()
+    public override void Stop()
     {
-        _context?.Navigation.Stop();
         ResetRunState();
-        Status = JobStatus.Idle;
+        base.Stop();
     }
 
     private void ResetRunState()
     {
         _target = null;
         _state = ReturnState.Idle;
-        _lastAction = DateTime.MinValue;
-        _stateEnteredAt = DateTime.MinValue;
+        LastActionAt = DateTime.MinValue;
+        TransitionedAt = DateTime.MinValue;
         _navigationStarted = false;
         _observedTransition = false;
     }
 
     private void TeleportToReturnPoint()
     {
-        if ((DateTime.UtcNow - _lastAction) < _actionDelay)
+        if ((DateTime.UtcNow - LastActionAt) < _actionDelay)
             return;
 
         if (_target!.IsInn)
@@ -136,7 +131,7 @@ public sealed unsafe class ReturnToCraftPointJob : IAutomationJob
             }
 
             LifestreamIPC.EnqueueInnShortcut();
-            _lastAction = DateTime.UtcNow;
+            LastActionAt = DateTime.UtcNow;
             _observedTransition = false;
             TransitionTo(ReturnState.WaitingForInn);
             return;
@@ -148,7 +143,7 @@ public sealed unsafe class ReturnToCraftPointJob : IAutomationJob
             return;
         }
 
-        _lastAction = DateTime.UtcNow;
+        LastActionAt = DateTime.UtcNow;
         _observedTransition = false;
         TransitionTo(ReturnState.WaitingForTeleport);
     }
@@ -162,13 +157,13 @@ public sealed unsafe class ReturnToCraftPointJob : IAutomationJob
         }
 
         if (Svc.ClientState.TerritoryType == _target!.TerritoryId
-            && (_observedTransition || (DateTime.UtcNow - _lastAction) > TimeSpan.FromSeconds(2)))
+            && (_observedTransition || (DateTime.UtcNow - LastActionAt) > TimeSpan.FromSeconds(2)))
         {
             TransitionTo(ReturnState.MovingToEntrance);
             return;
         }
 
-        if ((DateTime.UtcNow - _stateEnteredAt) > TimeSpan.FromSeconds(15))
+        if ((DateTime.UtcNow - TransitionedAt) > TimeSpan.FromSeconds(15))
             Fail("Timed out while waiting for residential teleport.");
     }
 
@@ -187,7 +182,7 @@ public sealed unsafe class ReturnToCraftPointJob : IAutomationJob
             return;
         }
 
-        if ((DateTime.UtcNow - _stateEnteredAt) > _innTeleportTimeout)
+        if ((DateTime.UtcNow - TransitionedAt) > _innTeleportTimeout)
             Fail("Timed out while waiting for inn teleport.");
     }
 
@@ -204,14 +199,14 @@ public sealed unsafe class ReturnToCraftPointJob : IAutomationJob
 
         if (!HousingReturnPointService.TryGetHousingEntrance(localPlayer.Position, _target!.IsApartment, out var entrance) || entrance == null)
         {
-            if ((DateTime.UtcNow - _stateEnteredAt) > TimeSpan.FromSeconds(15))
+            if ((DateTime.UtcNow - TransitionedAt) > TimeSpan.FromSeconds(15))
                 Fail("House entrance not found.");
             return;
         }
 
         if (!_navigationStarted)
         {
-            _context!.Navigation.NavigateTo(new NavigationTarget(
+            Context!.Navigation.NavigateTo(new NavigationTarget(
                 entrance.Position,
                 0,
                 Svc.ClientState.TerritoryType,
@@ -220,16 +215,16 @@ public sealed unsafe class ReturnToCraftPointJob : IAutomationJob
             return;
         }
 
-        if (_context!.Navigation.State == NavigationService.NavigationState.Arrived)
+        if (Context!.Navigation.State == NavigationStatus.Arrived)
         {
-            _context.Navigation.Stop();
+            Context.Navigation.Stop();
             _navigationStarted = false;
             TransitionTo(ReturnState.InteractingEntrance);
             return;
         }
 
-        if (_context.Navigation.State == NavigationService.NavigationState.Failed)
-            Fail(_context.Navigation.ErrorMessage ?? "Could not reach the house entrance.");
+        if (Context.Navigation.State == NavigationStatus.Failed)
+            Fail(Context.Navigation.ErrorMessage ?? "Could not reach the house entrance.");
     }
 
     private void InteractEntrance()
@@ -240,7 +235,7 @@ public sealed unsafe class ReturnToCraftPointJob : IAutomationJob
             return;
         }
 
-        if ((DateTime.UtcNow - _lastAction) < TimeSpan.FromSeconds(1))
+        if ((DateTime.UtcNow - LastActionAt) < TimeSpan.FromSeconds(1))
             return;
 
         if (Svc.Objects.LocalPlayer is not { } localPlayer)
@@ -252,14 +247,14 @@ public sealed unsafe class ReturnToCraftPointJob : IAutomationJob
             return;
         }
 
-        if (_context!.NpcInteraction.TryInteract(entrance, 4f))
+        if (Context!.NpcInteraction.TryInteract(entrance, 4f))
         {
-            _lastAction = DateTime.UtcNow;
+            LastActionAt = DateTime.UtcNow;
             TransitionTo(ReturnState.ConfirmingEntry);
             return;
         }
 
-        if ((DateTime.UtcNow - _stateEnteredAt) > TimeSpan.FromSeconds(10))
+        if ((DateTime.UtcNow - TransitionedAt) > TimeSpan.FromSeconds(10))
             Fail("Could not interact with the house entrance.");
     }
 
@@ -272,7 +267,7 @@ public sealed unsafe class ReturnToCraftPointJob : IAutomationJob
         }
 
 
-        if (_target.IsApartment)
+        if (_target!.IsApartment)
         {
             if (TryGetAddonByName<AddonSelectString>("SelectString", out var selectStringAddon)
                 && IsAddonReady(&selectStringAddon->AtkUnitBase))
@@ -281,7 +276,7 @@ public sealed unsafe class ReturnToCraftPointJob : IAutomationJob
                 if (selectString.EntryCount > 0)
                 {
                     selectString.Entries[0].Select();
-                    _lastAction = DateTime.UtcNow;
+                    LastActionAt = DateTime.UtcNow;
                     TransitionTo(ReturnState.WaitingForIndoor);
                     return;
                 }
@@ -293,15 +288,15 @@ public sealed unsafe class ReturnToCraftPointJob : IAutomationJob
                 && IsAddonReady(&yesnoAddon->AtkUnitBase))
             {
                 new AddonMaster.SelectYesno((nint)yesnoAddon).Yes();
-                _lastAction = DateTime.UtcNow;
+                LastActionAt = DateTime.UtcNow;
                 TransitionTo(ReturnState.WaitingForIndoor);
                 return;
             }
         }
 
-        if ((DateTime.UtcNow - _stateEnteredAt) > TimeSpan.FromSeconds(6))
+        if ((DateTime.UtcNow - TransitionedAt) > TimeSpan.FromSeconds(6))
         {
-            _lastAction = DateTime.MinValue;
+            LastActionAt = DateTime.MinValue;
             TransitionTo(ReturnState.InteractingEntrance);
         }
     }
@@ -314,29 +309,26 @@ public sealed unsafe class ReturnToCraftPointJob : IAutomationJob
             return;
         }
 
-        if ((DateTime.UtcNow - _stateEnteredAt) > TimeSpan.FromSeconds(20))
+        if ((DateTime.UtcNow - TransitionedAt) > TimeSpan.FromSeconds(20))
             Fail("Timed out while waiting to enter the house.");
     }
 
     private void Complete()
     {
-        _context?.Navigation.Stop();
-        Status = JobStatus.Completed;
+        MarkCompleted();
         _state = ReturnState.Idle;
     }
 
     private void Fail(string message)
     {
-        _context?.Navigation.Stop();
-        Status = JobStatus.Failed;
-        Svc.Log.Error($"[Starloom] ReturnToCraftPointJob failed: {message}");
+        FailJob(message);
         _state = ReturnState.Failed;
     }
 
     private void TransitionTo(ReturnState state)
     {
         _state = state;
-        _stateEnteredAt = DateTime.UtcNow;
+        TransitionedAt = DateTime.UtcNow;
     }
 
     private static bool IsTransitioning()

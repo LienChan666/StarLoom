@@ -10,7 +10,7 @@ namespace StarLoom.Services;
 
 public readonly record struct InventoryItem(uint BaseItemId, uint Quantity, bool IsCollectable);
 
-public static unsafe class InventoryService
+public sealed unsafe class InventoryService : IInventoryService
 {
     private static readonly TimeSpan SnapshotLifetime = TimeSpan.FromMilliseconds(250);
     private static readonly InventoryType[] InventoryTypes =
@@ -21,25 +21,25 @@ public static unsafe class InventoryService
         InventoryType.Inventory4,
     ];
 
-    private static InventorySnapshot? _cachedSnapshot;
-    private static DateTime _cachedSnapshotAt;
-    private static HashSet<uint>? _collectableTurnInItemIds;
+    private InventorySnapshot? _cachedSnapshot;
+    private DateTime _cachedSnapshotAt;
+    private HashSet<uint>? _collectableTurnInItemIds;
 
     private readonly record struct InventorySnapshot(List<InventoryItem> Items, int FreeSlotCount);
 
-    public static void InvalidateTransientCaches()
+    public void InvalidateTransientCaches()
     {
         _cachedSnapshot = null;
         _cachedSnapshotAt = DateTime.MinValue;
     }
 
-    public static List<InventoryItem> GetCurrentInventoryItems()
+    public List<InventoryItem> GetCurrentInventoryItems()
         => GetCurrentSnapshot().Items;
 
-    public static bool IsCollectableTurnInItem(uint itemId)
+    public bool IsCollectableTurnInItem(uint itemId)
         => itemId != 0 && GetCollectableTurnInItemIds().Contains(itemId);
 
-    public static int GetInventoryItemCount(uint itemId)
+    public int GetInventoryItemCount(uint itemId)
     {
         var manager = InventoryManager.Instance();
         if (manager == null)
@@ -48,12 +48,12 @@ public static unsafe class InventoryService
         return (int)manager->GetInventoryItemCount(itemId);
     }
 
-    public static int GetCollectableInventoryItemCount(uint itemId)
+    public int GetCollectableInventoryItemCount(uint itemId)
         => GetCurrentSnapshot().Items
             .Where(item => item.BaseItemId == itemId && item.IsCollectable)
             .Sum(item => (int)item.Quantity);
 
-    public static int GetCurrencyItemCount(uint itemId)
+    public int GetCurrencyItemCount(uint itemId)
     {
         if (itemId == 0)
             return -1;
@@ -67,16 +67,16 @@ public static unsafe class InventoryService
         return Math.Max(tomestoneCount, inventoryCount);
     }
 
-    public static int GetFreeSlotCount()
+    public int GetFreeSlotCount()
         => GetCurrentSnapshot().FreeSlotCount;
 
-    public static bool HasCollectableTurnIns()
+    public bool HasCollectableTurnIns()
         => GetCurrentSnapshot().Items.Any(item => item.IsCollectable && IsCollectableTurnInItem(item.BaseItemId));
 
-    public static Item? GetItemRow(uint itemId)
+    public Item? GetItemRow(uint itemId)
         => Svc.Data.GetExcelSheet<Item>()?.GetRow(itemId);
 
-    private static InventorySnapshot GetCurrentSnapshot()
+    private InventorySnapshot GetCurrentSnapshot()
     {
         if (_cachedSnapshot is { } cachedSnapshot
             && (DateTime.UtcNow - _cachedSnapshotAt) <= SnapshotLifetime)
@@ -124,7 +124,7 @@ public static unsafe class InventoryService
         return new InventorySnapshot(items, freeSlotCount);
     }
 
-    private static HashSet<uint> GetCollectableTurnInItemIds()
+    private HashSet<uint> GetCollectableTurnInItemIds()
     {
         if (_collectableTurnInItemIds != null)
             return _collectableTurnInItemIds;
@@ -136,34 +136,4 @@ public static unsafe class InventoryService
 
         return _collectableTurnInItemIds;
     }
-}
-
-public sealed class InventoryServiceAdapter : IInventoryService
-{
-    public void InvalidateTransientCaches()
-        => InventoryService.InvalidateTransientCaches();
-
-    public List<InventoryItem> GetCurrentInventoryItems()
-        => InventoryService.GetCurrentInventoryItems();
-
-    public bool IsCollectableTurnInItem(uint itemId)
-        => InventoryService.IsCollectableTurnInItem(itemId);
-
-    public int GetInventoryItemCount(uint itemId)
-        => InventoryService.GetInventoryItemCount(itemId);
-
-    public int GetCollectableInventoryItemCount(uint itemId)
-        => InventoryService.GetCollectableInventoryItemCount(itemId);
-
-    public int GetCurrencyItemCount(uint itemId)
-        => InventoryService.GetCurrencyItemCount(itemId);
-
-    public int GetFreeSlotCount()
-        => InventoryService.GetFreeSlotCount();
-
-    public bool HasCollectableTurnIns()
-        => InventoryService.HasCollectableTurnIns();
-
-    public Item? GetItemRow(uint itemId)
-        => InventoryService.GetItemRow(itemId);
 }

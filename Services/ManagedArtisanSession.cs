@@ -1,6 +1,7 @@
 using ECommons.DalamudServices;
 using StarLoom.Core;
 using StarLoom.IPC;
+using StarLoom.Services.Interfaces;
 using StarLoom.Workflows;
 using System;
 using System.Collections.Generic;
@@ -22,6 +23,7 @@ public sealed class ManagedArtisanSession
     private readonly IArtisanIpc _artisan;
     private readonly JobOrchestrator _orchestrator;
     private readonly Configuration _config;
+    private readonly IInventoryService _inventory;
     private readonly Func<IReadOnlyList<IAutomationJob>> _jobFactory;
     private readonly WorkflowStartValidator _workflowValidator;
 
@@ -35,12 +37,14 @@ public sealed class ManagedArtisanSession
         IArtisanIpc artisan,
         JobOrchestrator orchestrator,
         Configuration config,
+        IInventoryService inventory,
         Func<IReadOnlyList<IAutomationJob>> jobFactory,
         WorkflowStartValidator workflowValidator)
     {
         _artisan = artisan;
         _orchestrator = orchestrator;
         _config = config;
+        _inventory = inventory;
         _jobFactory = jobFactory;
         _workflowValidator = workflowValidator;
     }
@@ -91,7 +95,7 @@ public sealed class ManagedArtisanSession
         if (!IsBelowFreeSlotThreshold())
             return TryStartArtisanList();
 
-        if (!InventoryService.HasCollectableTurnIns())
+        if (!_inventory.HasCollectableTurnIns())
         {
             SetFailure("Inventory is below the free-slot threshold and there are no turn-ins available.", stopArtisan: false);
             return false;
@@ -193,7 +197,7 @@ public sealed class ManagedArtisanSession
             return;
         }
 
-        if (!InventoryService.HasCollectableTurnIns())
+        if (!_inventory.HasCollectableTurnIns())
         {
             if (!_warnedMissingCollectablesAtThreshold)
             {
@@ -224,7 +228,7 @@ public sealed class ManagedArtisanSession
             return;
         }
 
-        if (_orchestrator.State == OrchestratorState.Completed && IsBelowFreeSlotThreshold() && InventoryService.HasCollectableTurnIns())
+        if (_orchestrator.State == OrchestratorState.Completed && IsBelowFreeSlotThreshold() && _inventory.HasCollectableTurnIns())
         {
             if (!_orchestrator.TryStart(_jobFactory()))
             {
@@ -263,7 +267,7 @@ public sealed class ManagedArtisanSession
     }
 
     private bool IsBelowFreeSlotThreshold()
-        => _config.FreeSlotThreshold > 0 && InventoryService.GetFreeSlotCount() < _config.FreeSlotThreshold;
+        => _config.FreeSlotThreshold > 0 && _inventory.GetFreeSlotCount() < _config.FreeSlotThreshold;
 
     private void SetFailure(string message, bool stopArtisan)
     {
