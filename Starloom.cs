@@ -25,8 +25,7 @@ public sealed class Starloom : IDalamudPlugin
     internal PendingPurchaseResolver PurchaseResolver;
     internal CollectableTurnInService CollectableTurnIn;
     internal ScripPurchaseService ScripPurchase;
-    internal AutomationController Automation;
-    internal ArtisanSession Session;
+    internal WorkflowOrchestrator Automation;
     internal PluginUi Ui;
 
     public Starloom(IDalamudPluginInterface pluginInterface)
@@ -46,8 +45,7 @@ public sealed class Starloom : IDalamudPlugin
         PurchaseResolver = new PendingPurchaseResolver(C, Inventory);
         CollectableTurnIn = new CollectableTurnInService();
         ScripPurchase = new ScripPurchaseService();
-        Session = new ArtisanSession();
-        Automation = new AutomationController();
+        Automation = new WorkflowOrchestrator();
         Ui = new PluginUi();
 
         Svc.Commands.AddHandler("/starloom", new CommandInfo(OnCommand)
@@ -62,9 +60,6 @@ public sealed class Starloom : IDalamudPlugin
     private void OnUpdate(IFramework framework)
     {
         if (!Svc.ClientState.IsLoggedIn) return;
-        Navigation.Update();
-        CollectableTurnIn.Update();
-        ScripPurchase.Update();
         Automation.Update();
     }
 

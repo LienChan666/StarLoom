@@ -1,5 +1,4 @@
 using Starloom.Data;
-using Starloom.Services;
 
 namespace Starloom.Automation;
 
@@ -43,31 +42,25 @@ internal static class WorkflowStartValidator
 
     internal static bool CanStartArtisanList(out string errorMessage)
     {
-        var configuredPoint = C.DefaultCraftReturnPoint ?? HousingReturnPoint.CreateInn();
-        if (!HousingReturnPointService.TryResolveConfiguredPoint(configuredPoint, out var resolvedPoint))
+        if (!P.Artisan.IsAvailable())
         {
-            errorMessage = "Failed to resolve the configured return point before starting Artisan.";
+            errorMessage = "Artisan is not available.";
             return false;
         }
 
-        if (resolvedPoint.IsInn)
+        if (C.ArtisanListId <= 0)
         {
-            if (HousingReturnPointService.IsInsideInn())
-            {
-                errorMessage = string.Empty;
-                return true;
-            }
-            errorMessage = $"You are not currently at {resolvedPoint.DisplayName}, so the Artisan list cannot start.";
+            errorMessage = "Artisan list id is required.";
             return false;
         }
 
-        if (HousingReturnPointService.IsInsideHouse() || Svc.ClientState.TerritoryType == resolvedPoint.TerritoryId)
+        if (P.Artisan.IsListRunning() || P.Artisan.GetEnduranceStatus() || P.Artisan.IsBusy())
         {
-            errorMessage = string.Empty;
-            return true;
+            errorMessage = "Artisan is busy with another task.";
+            return false;
         }
 
-        errorMessage = $"You are not currently at {resolvedPoint.DisplayName}, so the Artisan list cannot start.";
-        return false;
+        errorMessage = string.Empty;
+        return true;
     }
 }

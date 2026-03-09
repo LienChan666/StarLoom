@@ -168,7 +168,9 @@ internal static unsafe class TaskReturnToCraftPoint
             return false;
         }
 
-        if (P.Navigation.State == NavigationStatus.Arrived)
+        P.Navigation.Poll();
+
+        if (P.Navigation.IsComplete)
         {
             P.Navigation.Stop();
             navigationStarted = false;
@@ -176,7 +178,7 @@ internal static unsafe class TaskReturnToCraftPoint
             return true;
         }
 
-        if (P.Navigation.State == NavigationStatus.Failed)
+        if (P.Navigation.HasFailed)
         {
             DuoLog.Error(P.Navigation.ErrorMessage ?? "Could not reach the house entrance.");
             return null;

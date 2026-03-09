@@ -1,4 +1,3 @@
-using Starloom.Automation;
 using Starloom.Data;
 using Starloom.GameInterop.Addons;
 using System;
@@ -31,33 +30,21 @@ public sealed class ScripPurchaseService
     private static readonly TimeSpan ShopWindowTimeout = TimeSpan.FromSeconds(30);
 
     private readonly ScripShopAddon shopAddon = new();
-    private readonly StateMachine<ScripPurchasePhase> stateMachine;
     private readonly Queue<PendingPurchaseItem> purchaseQueue = new();
 
-    public ScripPurchasePhase State { get; private set; } = ScripPurchasePhase.Idle;
     public string? ErrorMessage { get; private set; }
+    public bool IsCompleted => phase == ScripPurchasePhase.Done;
+    public bool HasFailed => phase == ScripPurchasePhase.Failed;
 
+    private ScripPurchasePhase phase = ScripPurchasePhase.Idle;
     private DateTime lastActionAt;
     private DateTime purchaseStartedAt;
+    private DateTime stateEnteredAt = DateTime.MinValue;
     private bool navigationStarted;
     private int currentPurchaseAmount;
     private uint currentTargetItemId;
     private string currentTargetItemName = string.Empty;
     private int inventoryCountBeforePurchase;
-
-    public ScripPurchaseService()
-    {
-        stateMachine = new StateMachine<ScripPurchasePhase>(ScripPurchasePhase.Idle, state => State = state);
-        stateMachine.Configure(ScripPurchasePhase.PreparingQueue, HandlePrepareQueue);
-        stateMachine.Configure(ScripPurchasePhase.Navigating, HandleNavigating);
-        stateMachine.Configure(ScripPurchasePhase.WaitingForShop, HandleWaitingForShop);
-        stateMachine.Configure(ScripPurchasePhase.SelectingPage, HandleSelectingPage);
-        stateMachine.Configure(ScripPurchasePhase.SelectingSubPage, HandleSelectingSubPage);
-        stateMachine.Configure(ScripPurchasePhase.SelectingItem, HandleSelectingItem);
-        stateMachine.Configure(ScripPurchasePhase.Purchasing, HandlePurchasing);
-        stateMachine.Configure(ScripPurchasePhase.WaitingForPurchase, HandleWaitingForPurchase);
-        stateMachine.Configure(ScripPurchasePhase.Cleanup, HandleCleanup);
-    }
 
     public void Start()
     {
@@ -81,12 +68,41 @@ public sealed class ScripPurchaseService
         TransitionTo(ScripPurchasePhase.Idle);
     }
 
-    public void Update()
+    public void Advance()
     {
-        if (State is ScripPurchasePhase.Idle or ScripPurchasePhase.Done or ScripPurchasePhase.Failed)
+        if (phase is ScripPurchasePhase.Idle or ScripPurchasePhase.Done or ScripPurchasePhase.Failed)
             return;
 
-        stateMachine.Update();
+        switch (phase)
+        {
+            case ScripPurchasePhase.PreparingQueue:
+                HandlePrepareQueue();
+                return;
+            case ScripPurchasePhase.Navigating:
+                HandleNavigating();
+                return;
+            case ScripPurchasePhase.WaitingForShop:
+                HandleWaitingForShop();
+                return;
+            case ScripPurchasePhase.SelectingPage:
+                HandleSelectingPage();
+                return;
+            case ScripPurchasePhase.SelectingSubPage:
+                HandleSelectingSubPage();
+                return;
+            case ScripPurchasePhase.SelectingItem:
+                HandleSelectingItem();
+                return;
+            case ScripPurchasePhase.Purchasing:
+                HandlePurchasing();
+                return;
+            case ScripPurchasePhase.WaitingForPurchase:
+                HandleWaitingForPurchase();
+                return;
+            case ScripPurchasePhase.Cleanup:
+                HandleCleanup();
+                return;
+        }
     }
 
     private void HandlePrepareQueue()
@@ -119,23 +135,27 @@ public sealed class ScripPurchaseService
             shop.ScripShopLocation, shop.AetheryteId, shop.TerritoryId, 0.4f,
             shop.IsLifestreamRequired, shop.LifestreamCommand);
 
-        if (!navigationStarted || P.Navigation.State == NavigationStatus.Idle)
+        if (!navigationStarted || P.Navigation.IsIdle)
         {
             P.Navigation.NavigateTo(target);
             navigationStarted = true;
             return;
         }
 
-        switch (P.Navigation.State)
+        P.Navigation.Poll();
+        if (P.Navigation.IsComplete)
         {
-            case NavigationStatus.Arrived:
-                navigationStarted = false;
-                lastActionAt = DateTime.MinValue;
-                TransitionTo(ScripPurchasePhase.WaitingForShop);
-                return;
-            case NavigationStatus.Failed:
-                Fail(P.Navigation.ErrorMessage ?? "Could not reach the scrip shop.");
-                return;
+            P.Navigation.Stop();
+            navigationStarted = false;
+            lastActionAt = DateTime.MinValue;
+            TransitionTo(ScripPurchasePhase.WaitingForShop);
+            return;
+        }
+
+        if (P.Navigation.HasFailed)
+        {
+            Fail(P.Navigation.ErrorMessage ?? "Could not reach the scrip shop.");
+            return;
         }
     }
 
@@ -148,7 +168,7 @@ public sealed class ScripPurchaseService
             return;
         }
 
-        if (stateMachine.TimedOut(ShopWindowTimeout))
+        if (TimedOut(ShopWindowTimeout))
         {
             Fail("Timed out while waiting for the scrip shop window.");
             return;
@@ -327,6 +347,12 @@ public sealed class ScripPurchaseService
     private bool ActionDelayElapsed()
         => (DateTime.UtcNow - lastActionAt) >= ActionDelay;
 
+    private bool TimedOut(TimeSpan timeout)
+        => (DateTime.UtcNow - stateEnteredAt) > timeout;
+
     private void TransitionTo(ScripPurchasePhase phase)
-        => stateMachine.TransitionTo(phase);
+    {
+        this.phase = phase;
+        stateEnteredAt = DateTime.UtcNow;
+    }
 }
