@@ -28,14 +28,14 @@ public sealed class LayoutMetricsTests
     }
 
     [Fact]
-    public void CreateSettings_ClampsSidebarWidth()
+    public void CreateSettings_UsesSinglePaneContent()
     {
         var narrow = LayoutMetrics.CreateSettings(800f, 12f);
         var wide = LayoutMetrics.CreateSettings(1400f, 12f);
 
-        Assert.Equal(210f, narrow.NavigationWidth);
-        Assert.Equal(578f, narrow.ContentWidth);
-        Assert.Equal(250f, wide.NavigationWidth);
-        Assert.Equal(1138f, wide.ContentWidth);
+        Assert.Equal(0f, narrow.NavigationWidth);
+        Assert.Equal(800f, narrow.ContentWidth);
+        Assert.Equal(0f, wide.NavigationWidth);
+        Assert.Equal(1400f, wide.ContentWidth);
     }
 }

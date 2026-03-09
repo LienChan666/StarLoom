@@ -15,9 +15,8 @@ internal static class LayoutMetrics
 
     internal static SettingsLayoutMetrics CreateSettings(float width, float spacing)
     {
-        var navigationWidth = Math.Clamp(width * 0.24f, 210f, 250f);
-        var contentWidth = Math.Max(0f, width - navigationWidth - spacing);
-        return new SettingsLayoutMetrics(navigationWidth, contentWidth);
+        _ = spacing;
+        return new SettingsLayoutMetrics(0f, Math.Max(0f, width));
     }
 }
 
