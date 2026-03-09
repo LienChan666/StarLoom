@@ -1,11 +1,11 @@
-using Starloom.Core;
-using Starloom.Data;
-using Starloom.Jobs;
-using Starloom.Services.Interfaces;
+using StarLoom.Core;
+using StarLoom.Data;
+using StarLoom.Jobs;
+using StarLoom.Services.Interfaces;
 using System.Collections.Generic;
 using System.Linq;
 
-namespace Starloom.Workflows;
+namespace StarLoom.Workflows;
 
 public sealed class WorkflowBuilder
 {

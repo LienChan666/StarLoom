@@ -2,14 +2,14 @@ using Dalamud.Game.Command;
 using Dalamud.Plugin;
 using ECommons;
 using ECommons.DalamudServices;
-using Starloom.Core;
-using Starloom.Data;
-using Starloom.IPC;
-using Starloom.Services;
-using Starloom.Services.Interfaces;
-using Starloom.UI;
+using StarLoom.Core;
+using StarLoom.Data;
+using StarLoom.IPC;
+using StarLoom.Services;
+using StarLoom.Services.Interfaces;
+using StarLoom.UI;
 
-namespace Starloom;
+namespace StarLoom;
 
 public sealed class Plugin : IDalamudPlugin
 {

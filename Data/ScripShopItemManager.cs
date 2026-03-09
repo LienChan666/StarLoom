@@ -1,5 +1,5 @@
 using ECommons.DalamudServices;
-using Starloom.Services;
+using StarLoom.Services;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -8,7 +8,7 @@ using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 
-namespace Starloom.Data;
+namespace StarLoom.Data;
 
 public sealed class ScripShopItemManager
 {

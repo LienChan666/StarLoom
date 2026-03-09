@@ -1,6 +1,6 @@
 using ECommons.DalamudServices;
 
-namespace Starloom.Services;
+namespace StarLoom.Services;
 
 public sealed class ConfigurationStore
 {

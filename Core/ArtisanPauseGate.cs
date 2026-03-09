@@ -1,6 +1,6 @@
 using System;
 
-namespace Starloom.Core;
+namespace StarLoom.Core;
 
 public enum ArtisanPauseGatePhase
 {

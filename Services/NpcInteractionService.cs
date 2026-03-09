@@ -2,12 +2,12 @@ using Dalamud.Game.ClientState.Objects.Types;
 using ECommons.DalamudServices;
 using FFXIVClientStructs.FFXIV.Client.Game.Control;
 using FFXIVClientStructs.FFXIV.Client.Game.Object;
-using Starloom.Services.Interfaces;
+using StarLoom.Services.Interfaces;
 using System;
 using System.Linq;
 using System.Numerics;
 
-namespace Starloom.Services;
+namespace StarLoom.Services;
 
 public sealed unsafe class NpcInteractionService : INpcInteractionService
 {

@@ -1,6 +1,6 @@
-using Starloom.Core;
+using StarLoom.Core;
 
-namespace Starloom.Services;
+namespace StarLoom.Services;
 
 public sealed class AutomationStatusPresenter
 {

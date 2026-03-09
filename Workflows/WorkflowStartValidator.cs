@@ -1,7 +1,7 @@
-using Starloom.Services.Interfaces;
+using StarLoom.Services.Interfaces;
 using System.Linq;
 
-namespace Starloom.Workflows;
+namespace StarLoom.Workflows;
 
 public sealed class WorkflowStartValidator
 {

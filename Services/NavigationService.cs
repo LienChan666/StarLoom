@@ -1,11 +1,11 @@
 using ECommons.DalamudServices;
-using Starloom.Core;
-using Starloom.IPC;
-using Starloom.Services.Interfaces;
+using StarLoom.Core;
+using StarLoom.IPC;
+using StarLoom.Services.Interfaces;
 using System;
 using System.Numerics;
 
-namespace Starloom.Services;
+namespace StarLoom.Services;
 
 public record NavigationTarget(
     Vector3 Location,

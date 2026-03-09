@@ -1,6 +1,6 @@
 using System.Text.Json.Serialization;
 
-namespace Starloom.Data;
+namespace StarLoom.Data;
 
 public class ScripShopItem
 {

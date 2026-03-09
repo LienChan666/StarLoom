@@ -1,6 +1,6 @@
 using System.Numerics;
 
-namespace Starloom.IPC;
+namespace StarLoom.IPC;
 
 public static class VNavmeshIPC
 {

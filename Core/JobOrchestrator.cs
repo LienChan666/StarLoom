@@ -1,9 +1,9 @@
 using ECommons.DalamudServices;
-using Starloom.IPC;
+using StarLoom.IPC;
 using System;
 using System.Collections.Generic;
 
-namespace Starloom.Core;
+namespace StarLoom.Core;
 
 public enum OrchestratorState
 {

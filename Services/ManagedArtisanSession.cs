@@ -1,10 +1,10 @@
 ﻿using ECommons.DalamudServices;
-using Starloom.Core;
-using Starloom.IPC;
+using StarLoom.Core;
+using StarLoom.IPC;
 using System;
 using System.Collections.Generic;
 
-namespace Starloom.Services;
+namespace StarLoom.Services;
 
 public enum ManagedArtisanSessionState
 {

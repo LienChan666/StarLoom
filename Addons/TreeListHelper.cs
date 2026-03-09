@@ -5,7 +5,7 @@ using FFXIVClientStructs.Interop;
 using FFXIVClientStructs.STD;
 using System;
 
-namespace Starloom.Addons;
+namespace StarLoom.Addons;
 
 public abstract unsafe class TreeListHelper
 {

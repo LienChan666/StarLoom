@@ -1,8 +1,8 @@
 using ECommons.Automation;
-using Starloom.Core;
+using StarLoom.Core;
 using System;
 
-namespace Starloom.IPC;
+namespace StarLoom.IPC;
 
 public sealed class ArtisanIPC : IArtisanIpc
 {

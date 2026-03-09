@@ -1,7 +1,7 @@
-using Starloom.IPC;
-using Starloom.Services.Interfaces;
+using StarLoom.IPC;
+using StarLoom.Services.Interfaces;
 
-namespace Starloom.Core;
+namespace StarLoom.Core;
 
 public sealed class JobContext
 {

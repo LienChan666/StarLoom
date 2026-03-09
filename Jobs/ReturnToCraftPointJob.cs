@@ -2,14 +2,14 @@ using Dalamud.Game.ClientState.Conditions;
 using ECommons.DalamudServices;
 using ECommons.UIHelpers.AddonMasterImplementations;
 using FFXIVClientStructs.FFXIV.Client.UI;
-using Starloom.Core;
-using Starloom.Data;
-using Starloom.IPC;
-using Starloom.Services;
+using StarLoom.Core;
+using StarLoom.Data;
+using StarLoom.IPC;
+using StarLoom.Services;
 using System;
 using static ECommons.GenericHelpers;
 
-namespace Starloom.Jobs;
+namespace StarLoom.Jobs;
 
 public sealed unsafe class ReturnToCraftPointJob : IAutomationJob
 {

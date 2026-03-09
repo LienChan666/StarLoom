@@ -1,12 +1,12 @@
 ﻿using ECommons.DalamudServices;
 using FFXIVClientStructs.FFXIV.Component.GUI;
-using Starloom.Data;
+using StarLoom.Data;
 using System.Collections.Generic;
 using System.Linq;
 using static ECommons.GenericHelpers;
 using ValueType = FFXIVClientStructs.FFXIV.Component.GUI.ValueType;
 
-namespace Starloom.Addons;
+namespace StarLoom.Addons;
 
 public sealed unsafe class ScripShopAddon
 {

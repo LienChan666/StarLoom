@@ -1,9 +1,9 @@
 using Dalamud.Bindings.ImGui;
-using Starloom.UI.Components.Shared;
+using StarLoom.UI.Components.Shared;
 using System;
 using System.Numerics;
 
-namespace Starloom.UI.Components.Home;
+namespace StarLoom.UI.Components.Home;
 
 internal sealed class HomeControlPane
 {

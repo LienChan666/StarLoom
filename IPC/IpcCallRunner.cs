@@ -1,7 +1,7 @@
 using ECommons.DalamudServices;
 using System;
 
-namespace Starloom.IPC;
+namespace StarLoom.IPC;
 
 public sealed class IpcCallRunner
 {

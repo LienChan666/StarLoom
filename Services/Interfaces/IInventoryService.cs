@@ -1,7 +1,7 @@
 using Lumina.Excel.Sheets;
 using System.Collections.Generic;
 
-namespace Starloom.Services.Interfaces;
+namespace StarLoom.Services.Interfaces;
 
 public interface IInventoryService
 {

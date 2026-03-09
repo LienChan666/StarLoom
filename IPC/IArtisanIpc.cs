@@ -1,6 +1,6 @@
-using Starloom.Core;
+using StarLoom.Core;
 
-namespace Starloom.IPC;
+namespace StarLoom.IPC;
 
 public interface IArtisanIpc
 {

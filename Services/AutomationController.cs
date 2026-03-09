@@ -1,11 +1,11 @@
 using ECommons.DalamudServices;
-using Starloom.Core;
-using Starloom.Jobs;
-using Starloom.Services.Interfaces;
-using Starloom.Workflows;
+using StarLoom.Core;
+using StarLoom.Jobs;
+using StarLoom.Services.Interfaces;
+using StarLoom.Workflows;
 using System.Collections.Generic;
 
-namespace Starloom.Services;
+namespace StarLoom.Services;
 
 public sealed class AutomationController
 {

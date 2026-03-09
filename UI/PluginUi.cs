@@ -2,7 +2,7 @@ using Dalamud.Interface.Windowing;
 using ECommons.DalamudServices;
 using System;
 
-namespace Starloom.UI;
+namespace StarLoom.UI;
 
 public sealed class PluginUi : IDisposable
 {

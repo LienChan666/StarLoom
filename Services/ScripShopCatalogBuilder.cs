@@ -2,12 +2,12 @@ using ECommons.DalamudServices;
 using FFXIVClientStructs.FFXIV.Client.Game;
 using Lumina.Excel;
 using Lumina.Excel.Sheets;
-using Starloom.Data;
+using StarLoom.Data;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 
-namespace Starloom.Services;
+namespace StarLoom.Services;
 
 public sealed unsafe class ScripShopCatalogBuilder
 {

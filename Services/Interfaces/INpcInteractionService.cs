@@ -1,6 +1,6 @@
 using Dalamud.Game.ClientState.Objects.Types;
 
-namespace Starloom.Services.Interfaces;
+namespace StarLoom.Services.Interfaces;
 
 public interface INpcInteractionService
 {

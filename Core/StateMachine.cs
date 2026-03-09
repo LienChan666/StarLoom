@@ -1,7 +1,7 @@
 using System;
 using System.Collections.Generic;
 
-namespace Starloom.Core;
+namespace StarLoom.Core;
 
 public sealed class StateMachine<TState> where TState : struct, Enum
 {

@@ -1,9 +1,9 @@
-using Starloom.IPC;
-using Starloom.Services;
-using Starloom.Services.Interfaces;
-using Starloom.Workflows;
+using StarLoom.IPC;
+using StarLoom.Services;
+using StarLoom.Services.Interfaces;
+using StarLoom.Workflows;
 
-namespace Starloom.Core;
+namespace StarLoom.Core;
 
 public sealed class ServiceRegistry
 {

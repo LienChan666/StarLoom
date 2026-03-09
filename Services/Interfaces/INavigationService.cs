@@ -1,6 +1,6 @@
-using Starloom.Services;
+using StarLoom.Services;
 
-namespace Starloom.Services.Interfaces;
+namespace StarLoom.Services.Interfaces;
 
 public interface INavigationService
 {

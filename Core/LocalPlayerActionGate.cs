@@ -1,7 +1,7 @@
 using Dalamud.Game.ClientState.Conditions;
 using ECommons.DalamudServices;
 
-namespace Starloom.Core;
+namespace StarLoom.Core;
 
 public readonly record struct LocalPlayerActionStatus(
     bool HasLocalPlayer,

@@ -1,12 +1,12 @@
 using ECommons.DalamudServices;
 using FFXIVClientStructs.FFXIV.Client.Game;
 using Lumina.Excel.Sheets;
-using Starloom.Services.Interfaces;
+using StarLoom.Services.Interfaces;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 
-namespace Starloom.Services;
+namespace StarLoom.Services;
 
 public readonly record struct InventoryItem(uint BaseItemId, uint Quantity, bool IsCollectable);
 

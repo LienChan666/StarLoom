@@ -1,4 +1,4 @@
-namespace Starloom.IPC;
+namespace StarLoom.IPC;
 
 public static class LifestreamIPC
 {

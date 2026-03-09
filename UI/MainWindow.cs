@@ -1,10 +1,10 @@
 using Dalamud.Bindings.ImGui;
 using Dalamud.Interface.Windowing;
-using Starloom.UI.Components.Home;
-using Starloom.UI.Components.Settings;
+using StarLoom.UI.Components.Home;
+using StarLoom.UI.Components.Settings;
 using System.Numerics;
 
-namespace Starloom.UI;
+namespace StarLoom.UI;
 
 public sealed class MainWindow : Window
 {

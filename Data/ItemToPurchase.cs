@@ -1,4 +1,4 @@
-namespace Starloom.Data;
+namespace StarLoom.Data;
 
 public class ItemToPurchase
 {

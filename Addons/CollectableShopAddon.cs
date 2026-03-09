@@ -4,7 +4,7 @@ using Lumina.Excel.Sheets;
 using static ECommons.GenericHelpers;
 using ValueType = FFXIVClientStructs.FFXIV.Component.GUI.ValueType;
 
-namespace Starloom.Addons;
+namespace StarLoom.Addons;
 
 public sealed unsafe class CollectableShopAddon
 {
