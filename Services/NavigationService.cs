@@ -82,7 +82,7 @@ public sealed class NavigationService : INavigationService
 
         if (_target == null)
         {
-            Fail("导航目标为空。");
+            Fail("Navigation target is missing.");
             return;
         }
 
@@ -143,7 +143,7 @@ public sealed class NavigationService : INavigationService
         {
             if (!NativeTeleporter.Teleport(_target.AetheryteId))
             {
-                Fail("传送失败");
+                Fail("Teleport failed.");
                 return;
             }
 
@@ -166,7 +166,7 @@ public sealed class NavigationService : INavigationService
 
         if (!LifestreamIPC.IsAvailable())
         {
-            Fail("需要 Lifestream 插件");
+            Fail("Lifestream is required.");
             return;
         }
 
@@ -185,7 +185,7 @@ public sealed class NavigationService : INavigationService
         {
             if (!VNavmeshIPC.PathfindAndMoveTo(_target.Location, false))
             {
-                Fail("寻路失败");
+                Fail("Pathfinding failed.");
                 return;
             }
 
@@ -216,7 +216,7 @@ public sealed class NavigationService : INavigationService
 
         if ((DateTime.UtcNow - _movementStartTime) > TimeSpan.FromSeconds(60))
         {
-            Fail($"导航超时，距目标 {distance:F1}m");
+            Fail($"Navigation timed out. Distance to target: {distance:F1}m.");
             return;
         }
 

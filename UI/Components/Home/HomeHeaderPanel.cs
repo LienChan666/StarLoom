@@ -35,21 +35,19 @@ internal sealed class HomeHeaderPanel
     {
         ImGui.SetWindowFontScale(1.3f);
         ImGui.PushStyleColor(ImGuiCol.Text, GamePanelStyle.Accent);
-        ImGui.TextUnformatted("Starloom");
+        ImGui.TextUnformatted(_plugin.GetText("home.header.title"));
         ImGui.PopStyleColor();
         ImGui.SetWindowFontScale(1.0f);
 
-        ImGui.TextUnformatted("收藏品提交 / 工票兑换控制台");
-        GamePanelStyle.DrawHint("把流程控制、运行状态与兑换队列聚合到一套更接近 FF14 插件的深色工具面板中。");
+        ImGui.TextUnformatted(_plugin.GetText("home.header.subtitle"));
+        GamePanelStyle.DrawHint(_plugin.GetText("home.header.hint"));
     }
 
     private void DrawBadges()
     {
         var stateColor = _plugin.IsAutomationBusy ? GamePanelStyle.Gold : GamePanelStyle.Success;
-        GamePanelStyle.DrawPillBadge($"调度器 · {_plugin.GetOrchestratorStateText()}", stateColor);
+        GamePanelStyle.DrawPillBadge(_plugin.GetText("home.header.badge.total_state", _plugin.GetOrchestratorStateText()), stateColor);
         ImGui.SameLine(0f, GamePanelStyle.Spacing.Sm);
-        GamePanelStyle.DrawPillBadge($"当前任务 · {_plugin.GetCurrentJobDisplayName()}", GamePanelStyle.Accent);
-        ImGui.SameLine(0f, GamePanelStyle.Spacing.Sm);
-        GamePanelStyle.DrawPillBadge($"当前清单 · {_plugin.Config.ArtisanListId}", GamePanelStyle.AccentSoft);
+        GamePanelStyle.DrawPillBadge(_plugin.GetText("home.header.badge.current_list", _plugin.Config.ArtisanListId), GamePanelStyle.AccentSoft);
     }
 }

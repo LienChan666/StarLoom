@@ -1,4 +1,5 @@
-﻿using FFXIVClientStructs.FFXIV.Component.GUI;
+using ECommons.DalamudServices;
+using FFXIVClientStructs.FFXIV.Component.GUI;
 using StarLoom.Addons;
 using StarLoom.Core;
 using StarLoom.Data;
@@ -47,7 +48,6 @@ public sealed unsafe class ScripPurchaseJob : IAutomationJob
     private int _inventoryCountBeforePurchase;
 
     public string Id => "scrip-purchase";
-    public string StatusText { get; private set; } = "空闲";
     public JobStatus Status { get; private set; } = JobStatus.Idle;
 
     public ScripPurchaseJob()
@@ -63,7 +63,6 @@ public sealed unsafe class ScripPurchaseJob : IAutomationJob
         _stateMachine.Configure(PurchaseState.WaitingForPurchaseComplete, WaitForPurchaseComplete);
         _stateMachine.Configure(PurchaseState.CheckingForMore, CheckForMorePurchases);
         _stateMachine.Configure(PurchaseState.Completed, Complete);
-        _stateMachine.Configure(PurchaseState.Failed, () => Fail(StatusText));
     }
 
     public bool CanStart() => true;
@@ -75,15 +74,12 @@ public sealed unsafe class ScripPurchaseJob : IAutomationJob
         InventoryService.InvalidateTransientCaches();
         if (context.Config.PreferredCollectableShop == null)
         {
-            Status = JobStatus.Failed;
-            StatusText = "未配置收藏品商店。";
-            TransitionTo(PurchaseState.Failed);
+            Fail("Collectable shop is not configured.");
             return;
         }
 
         Status = JobStatus.Running;
         TransitionTo(PurchaseState.PreparingQueue);
-        StatusText = "正在准备工票购买队列";
     }
 
     public void Update()
@@ -97,7 +93,7 @@ public sealed unsafe class ScripPurchaseJob : IAutomationJob
         }
         catch (Exception ex)
         {
-            Fail($"工票购买异常：{ex.Message}");
+            Fail($"Scrip purchase failed: {ex.Message}");
         }
     }
 
@@ -107,7 +103,6 @@ public sealed unsafe class ScripPurchaseJob : IAutomationJob
         _shopAddon.CloseShop();
         ResetRunState();
         Status = JobStatus.Idle;
-        StatusText = "已停止";
     }
 
     private void ResetRunState()
@@ -126,12 +121,11 @@ public sealed unsafe class ScripPurchaseJob : IAutomationJob
 
     private void PreparePurchaseQueue()
     {
-        StatusText = "正在准备工票购买队列";
         _purchaseQueue.Clear();
         var configuredItems = _context!.Config.ScripShopItems;
         if (configuredItems == null)
         {
-            Fail("未配置工票购买列表。");
+            Fail("Scrip purchase list is not configured.");
             return;
         }
 
@@ -166,7 +160,6 @@ public sealed unsafe class ScripPurchaseJob : IAutomationJob
         var shop = GetPreferredShop();
         if (!_navigationStarted)
         {
-        StatusText = "正在前往工票商店";
             _context!.Navigation.NavigateTo(new NavigationTarget(
                 shop.ScripShopLocation,
                 shop.AetheryteId,
@@ -187,12 +180,11 @@ public sealed unsafe class ScripPurchaseJob : IAutomationJob
         }
 
         if (_context.Navigation.State == NavigationService.NavigationState.Failed)
-            Fail(_context.Navigation.ErrorMessage ?? "无法到达工票商店");
+            Fail(_context.Navigation.ErrorMessage ?? "Could not reach the scrip shop.");
     }
 
     private void WaitForScripShopWindow()
     {
-        StatusText = "正在打开工票商店";
         if (_shopAddon.IsReady)
         {
             TransitionTo(PurchaseState.SelectingPage);
@@ -202,7 +194,7 @@ public sealed unsafe class ScripPurchaseJob : IAutomationJob
 
         if ((DateTime.UtcNow - _stateEnteredAt) > _shopWindowTimeout)
         {
-            Fail("等待工票商店窗口超时。");
+            Fail("Timed out while waiting for the scrip shop window.");
             return;
         }
 
@@ -231,7 +223,6 @@ public sealed unsafe class ScripPurchaseJob : IAutomationJob
             return;
         }
 
-        StatusText = "正在选择工票商店页签";
         var next = _purchaseQueue.Peek();
         _shopAddon.SelectPage(next.page);
         _lastAction = DateTime.UtcNow;
@@ -243,7 +234,6 @@ public sealed unsafe class ScripPurchaseJob : IAutomationJob
         if ((DateTime.UtcNow - _lastAction) < _actionDelay)
             return;
 
-        StatusText = "正在选择工票商店子页";
         var next = _purchaseQueue.Peek();
         _shopAddon.SelectSubPage(next.subPage);
         _lastAction = DateTime.UtcNow;
@@ -255,12 +245,11 @@ public sealed unsafe class ScripPurchaseJob : IAutomationJob
         if ((DateTime.UtcNow - _lastAction) < _actionDelay)
             return;
 
-        StatusText = "正在选择工票商品";
         var next = _purchaseQueue.Peek();
         var scrips = InventoryService.GetCurrencyItemCount(next.currencyItemId);
         if (scrips < 0)
         {
-            Fail($"无法读取工票数量：{next.name}");
+            Fail($"Could not read scrip count for {next.name}");
             return;
         }
 
@@ -269,7 +258,7 @@ public sealed unsafe class ScripPurchaseJob : IAutomationJob
         var amount = Math.Min(next.remaining, Math.Min(maxByScrip, 99));
         if (amount <= 0)
         {
-            Fail($"当前工票不足以购买 1 个：{next.name}（当前={scrips}，预留={_context.Config.ReserveScripAmount}，单价={next.cost}）");
+            Fail($"Not enough scrips to purchase one item: {next.name} (current={scrips}, reserve={_context.Config.ReserveScripAmount}, cost={next.cost})");
             return;
         }
 
@@ -279,7 +268,7 @@ public sealed unsafe class ScripPurchaseJob : IAutomationJob
 
         if (!_shopAddon.SelectItem(next.itemId, next.name, amount, knownShopItems))
         {
-            Fail($"无法在工票商店中定位商品：{next.name}");
+            Fail($"Could not locate the item in the scrip shop: {next.name}");
             return;
         }
 
@@ -297,7 +286,6 @@ public sealed unsafe class ScripPurchaseJob : IAutomationJob
         if ((DateTime.UtcNow - _lastAction) < _actionDelay)
             return;
 
-        StatusText = "正在兑换工票商品";
         switch (_shopAddon.PurchaseItem(_currentTargetItemId, _currentTargetItemName))
         {
             case ScripShopAddon.PurchaseDialogResult.Missing:
@@ -305,12 +293,12 @@ public sealed unsafe class ScripPurchaseJob : IAutomationJob
                     _purchaseStartedAt = DateTime.UtcNow;
 
                 if ((DateTime.UtcNow - _purchaseStartedAt) > _purchaseTimeout)
-                    Fail($"工票购买确认窗口未出现：{_currentTargetItemName}");
+                    Fail($"Purchase confirmation window did not appear: {_currentTargetItemName}");
 
                 return;
 
             case ScripShopAddon.PurchaseDialogResult.MismatchedItem:
-                Fail($"购买确认框商品不匹配：{_currentTargetItemName}");
+                Fail($"Purchase confirmation item mismatch: {_currentTargetItemName}");
                 return;
 
             case ScripShopAddon.PurchaseDialogResult.Confirmed:
@@ -330,7 +318,7 @@ public sealed unsafe class ScripPurchaseJob : IAutomationJob
         if (currentCount <= _inventoryCountBeforePurchase)
         {
             if ((DateTime.UtcNow - _purchaseStartedAt) > _purchaseTimeout)
-                Fail($"工票购买未生效：{_currentTargetItemName}");
+                Fail($"Scrip purchase did not complete: {_currentTargetItemName}");
 
             return;
         }
@@ -364,7 +352,6 @@ public sealed unsafe class ScripPurchaseJob : IAutomationJob
         _shopAddon.CloseShop();
         InventoryService.InvalidateTransientCaches();
         Status = JobStatus.Completed;
-        StatusText = "工票购买完成";
         TransitionTo(PurchaseState.Idle);
     }
 
@@ -374,7 +361,7 @@ public sealed unsafe class ScripPurchaseJob : IAutomationJob
         _shopAddon.CloseShop();
         InventoryService.InvalidateTransientCaches();
         Status = JobStatus.Failed;
-        StatusText = message;
+        Svc.Log.Error($"[Starloom] ScripPurchaseJob failed: {message}");
         TransitionTo(PurchaseState.Failed);
     }
 

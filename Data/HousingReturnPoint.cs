@@ -13,6 +13,6 @@ public sealed class HousingReturnPoint
         => new()
         {
             IsInn = true,
-            DisplayName = "旅馆",
+            DisplayName = "Inn",
         };
 }

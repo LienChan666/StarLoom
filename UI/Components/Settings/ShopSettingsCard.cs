@@ -18,13 +18,13 @@ internal sealed class ShopSettingsCard
     public void Draw()
     {
         var currentShop = _plugin.Config.PreferredCollectableShop;
-        var preview = currentShop?.Name ?? "未选择";
+        var preview = currentShop?.Name ?? _plugin.GetText("common.not_selected");
         if (!GamePanelStyle.BeginSettingsTable("##ShopSettingsTable"))
             return;
 
         ImGui.TableNextRow();
         ImGui.TableSetColumnIndex(0);
-        GamePanelStyle.DrawSettingLabel("收藏品商店");
+        GamePanelStyle.DrawSettingLabel(_plugin.GetText("settings.shop.collectable_shop"));
 
         ImGui.TableSetColumnIndex(1);
         ImGui.SetNextItemWidth(Math.Min(320f, ImGui.GetContentRegionAvail().X));
@@ -34,7 +34,7 @@ internal sealed class ShopSettingsCard
             {
                 var isSelected = currentShop != null
                     && string.Equals(currentShop.Name, shop.Name, StringComparison.Ordinal);
-                if (ImGui.Selectable(shop.Name, isSelected))
+                if (ImGui.Selectable($"{shop.Name}##Shop_{shop.Name}", isSelected))
                 {
                     _plugin.Config.PreferredCollectableShop = shop;
                     _plugin.SaveConfig();

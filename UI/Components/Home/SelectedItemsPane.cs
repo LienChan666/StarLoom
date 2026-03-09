@@ -20,11 +20,13 @@ internal sealed class SelectedItemsPane
         using var _ = GamePanelStyle.BeginPanel("##SelectedPane", size, GamePanelStyle.BorderSubtle);
 
         var totalQuantity = _plugin.Config.ScripShopItems.Sum(item => item.Quantity);
-        GamePanelStyle.DrawPanelHeader("已选兑换列表", $"共 {_plugin.Config.ScripShopItems.Count} 项，目标数量合计 {totalQuantity}。");
+        GamePanelStyle.DrawPanelHeader(
+            _plugin.GetText("home.selected.title"),
+            _plugin.GetText("home.selected.description", _plugin.Config.ScripShopItems.Count, totalQuantity));
 
         if (_plugin.Config.ScripShopItems.Count == 0)
         {
-            GamePanelStyle.DrawHint("当前还没有配置任何兑换物品，请先从上方搜索并加入队列。");
+            GamePanelStyle.DrawHint(_plugin.GetText("home.selected.empty_hint"));
             return;
         }
 
@@ -41,12 +43,12 @@ internal sealed class SelectedItemsPane
 
         if (ImGui.BeginTable("##SelectedTable", 6, tableFlags))
         {
-            ImGui.TableSetupColumn("名称", ImGuiTableColumnFlags.WidthStretch, 0.34f);
-            ImGui.TableSetupColumn("工票", ImGuiTableColumnFlags.WidthStretch, 0.18f);
-            ImGui.TableSetupColumn("单价", ImGuiTableColumnFlags.WidthFixed, 60f);
-            ImGui.TableSetupColumn("目标数量", ImGuiTableColumnFlags.WidthFixed, 100f);
-            ImGui.TableSetupColumn("排序", ImGuiTableColumnFlags.WidthFixed, 78f);
-            ImGui.TableSetupColumn("操作", ImGuiTableColumnFlags.WidthFixed, 64f);
+            ImGui.TableSetupColumn(_plugin.GetText("home.selected.table.name"), ImGuiTableColumnFlags.WidthStretch, 0.34f);
+            ImGui.TableSetupColumn(_plugin.GetText("home.selected.table.currency"), ImGuiTableColumnFlags.WidthStretch, 0.18f);
+            ImGui.TableSetupColumn(_plugin.GetText("home.selected.table.cost"), ImGuiTableColumnFlags.WidthFixed, 60f);
+            ImGui.TableSetupColumn(_plugin.GetText("home.selected.table.quantity"), ImGuiTableColumnFlags.WidthFixed, 100f);
+            ImGui.TableSetupColumn(_plugin.GetText("home.selected.table.order"), ImGuiTableColumnFlags.WidthFixed, 78f);
+            ImGui.TableSetupColumn(_plugin.GetText("home.selected.table.action"), ImGuiTableColumnFlags.WidthFixed, 64f);
             ImGui.TableHeadersRow();
 
             for (var index = 0; index < _plugin.Config.ScripShopItems.Count; index++)
@@ -77,13 +79,13 @@ internal sealed class SelectedItemsPane
                 ImGui.TableSetColumnIndex(4);
                 ImGui.PushStyleColor(ImGuiCol.Text, GamePanelStyle.TextSecond);
                 ImGui.BeginDisabled(index == 0);
-                if (ImGui.SmallButton("\u2191"))
+                if (ImGui.SmallButton("↑##MoveUp"))
                     moveUpIndex = index;
                 ImGui.EndDisabled();
 
                 ImGui.SameLine();
                 ImGui.BeginDisabled(index == _plugin.Config.ScripShopItems.Count - 1);
-                if (ImGui.SmallButton("\u2193"))
+                if (ImGui.SmallButton("↓##MoveDown"))
                     moveDownIndex = index;
                 ImGui.EndDisabled();
                 ImGui.PopStyleColor();
@@ -92,7 +94,7 @@ internal sealed class SelectedItemsPane
                 ImGui.PushStyleColor(ImGuiCol.Button, GamePanelStyle.Tint(GamePanelStyle.Danger, 0.3f));
                 ImGui.PushStyleColor(ImGuiCol.ButtonHovered, GamePanelStyle.Tint(GamePanelStyle.Danger, 0.5f));
                 ImGui.PushStyleColor(ImGuiCol.ButtonActive, GamePanelStyle.Tint(GamePanelStyle.Danger, 0.7f));
-                if (ImGui.SmallButton("\u00d7"))
+                if (ImGui.SmallButton("×##Remove"))
                     removeIndex = index;
                 ImGui.PopStyleColor(3);
 

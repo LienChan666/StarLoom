@@ -131,7 +131,7 @@ public static unsafe class HousingReturnPointService
         var aetheryte = Svc.Data.GetExcelSheet<Aetheryte>()?.GetRow(aetheryteId);
         var territoryName = aetheryte?.Territory.ValueNullable?.PlaceName.ValueNullable?.Name.ToString() ?? "???";
         if (isApartment)
-            return $"{territoryName} 公寓";
+            return $"{territoryName} Apartment";
 
         var placeName = aetheryte?.PlaceName.ValueNullable?.Name.ToString() ?? "???";
         return $"{territoryName} {placeName}";

@@ -23,12 +23,10 @@ public sealed class ScripShopItemManager
     private readonly ConfigurationStore _configurationStore;
     private readonly ScripShopCatalogBuilder _catalogBuilder = new();
     private readonly SemaphoreSlim _syncLock = new(1, 1);
+    private string CachePath => Path.Combine(Svc.PluginInterface.ConfigDirectory.FullName, CacheFileName);
 
     public static List<ScripShopItem> ShopItems = [];
     public static bool IsLoading { get; private set; }
-    public bool IsRefreshing { get; private set; }
-    public string StatusMessage { get; private set; } = "工票物品索引尚未加载。";
-    public string CacheFilePath => Path.Combine(Svc.PluginInterface.ConfigDirectory.FullName, CacheFileName);
 
     public ScripShopItemManager(Configuration config, ConfigurationStore configurationStore)
     {
@@ -40,14 +38,6 @@ public sealed class ScripShopItemManager
     public void RequestLoad()
         => _ = Task.Run(LoadScripItemsAsync);
 
-    public void RequestRefresh()
-    {
-        if (IsLoading)
-            return;
-
-        _ = Task.Run(RefreshCacheAsync);
-    }
-
     public async Task LoadScripItemsAsync()
     {
         await _syncLock.WaitAsync();
@@ -57,12 +47,12 @@ public sealed class ScripShopItemManager
             var items = await EnsureCacheAndLoadAsync();
             ShopItems = items;
             SyncConfiguredItems(items);
-            StatusMessage = $"已加载 {items.Count} 条工票物品。";
+            Svc.Log.Info($"[Starloom] Catalog loaded: {items.Count} items.");
         }
         catch (Exception ex)
         {
             ShopItems = [];
-            StatusMessage = $"工票物品索引加载失败：{ex.Message}";
+            Svc.Log.Error($"[Starloom] Catalog load failed: {ex}");
         }
         finally
         {
@@ -71,61 +61,34 @@ public sealed class ScripShopItemManager
         }
     }
 
-    public async Task RefreshCacheAsync()
+    private async Task<List<ScripShopItem>> RebuildCacheAsync(string reason)
     {
-        await _syncLock.WaitAsync();
-        IsLoading = true;
-        IsRefreshing = true;
-        var previousItems = ShopItems;
-        try
-        {
-            StatusMessage = "正在构建工票物品列表...";
-            var items = _catalogBuilder.BuildCatalog();
-            await WriteCacheAsync(items);
-            ShopItems = items;
-            SyncConfiguredItems(items);
-            StatusMessage = $"已刷新工票物品列表，共 {items.Count} 条。";
-        }
-        catch (Exception ex)
-        {
-            ShopItems = previousItems;
-            StatusMessage = $"刷新工票物品列表失败：{ex.Message}";
-        }
-        finally
-        {
-            IsRefreshing = false;
-            IsLoading = false;
-            _syncLock.Release();
-        }
+        Svc.Log.Info($"[Starloom] Rebuilding catalog cache: {reason}.");
+        var items = _catalogBuilder.BuildCatalog();
+        await WriteCacheAsync(items);
+        Svc.Log.Info($"[Starloom] Catalog rebuilt: {items.Count} items.");
+        return items;
     }
 
     private async Task<List<ScripShopItem>> EnsureCacheAndLoadAsync()
     {
-        if (!File.Exists(CacheFilePath))
-        {
-            StatusMessage = "未找到外部工票物品列表，正在自动构建...";
-            var generatedItems = _catalogBuilder.BuildCatalog();
-            await WriteCacheAsync(generatedItems);
-            return generatedItems;
-        }
+        if (!File.Exists(CachePath))
+            return await RebuildCacheAsync("cache file missing");
 
         ScripShopCatalogCacheDocument cacheDocument;
         try
         {
             cacheDocument = await ReadCacheAsync();
         }
-        catch (Exception)
+        catch
         {
-            cacheDocument = new ScripShopCatalogCacheDocument();
+            return await RebuildCacheAsync("cache file unreadable");
         }
 
         if (IsCacheValid(cacheDocument))
             return cacheDocument.Items;
 
-        StatusMessage = "工票物品缓存已过期，正在重新构建...";
-        var rebuiltItems = _catalogBuilder.BuildCatalog();
-        await WriteCacheAsync(rebuiltItems);
-        return rebuiltItems;
+        return await RebuildCacheAsync("catalog signature changed");
     }
 
     private bool IsCacheValid(ScripShopCatalogCacheDocument cacheDocument)
@@ -134,13 +97,13 @@ public sealed class ScripShopItemManager
 
     private async Task<ScripShopCatalogCacheDocument> ReadCacheAsync()
     {
-        await using var stream = File.OpenRead(CacheFilePath);
+        await using var stream = File.OpenRead(CachePath);
         return await JsonSerializer.DeserializeAsync<ScripShopCatalogCacheDocument>(stream) ?? new ScripShopCatalogCacheDocument();
     }
 
     private async Task WriteCacheAsync(List<ScripShopItem> items)
     {
-        Directory.CreateDirectory(Path.GetDirectoryName(CacheFilePath) ?? Svc.PluginInterface.ConfigDirectory.FullName);
+        Directory.CreateDirectory(Path.GetDirectoryName(CachePath) ?? Svc.PluginInterface.ConfigDirectory.FullName);
         var cacheDocument = new ScripShopCatalogCacheDocument
         {
             CatalogVersion = _catalogBuilder.GetCatalogVersion(),
@@ -148,7 +111,7 @@ public sealed class ScripShopItemManager
             Items = items,
         };
 
-        await File.WriteAllTextAsync(CacheFilePath, JsonSerializer.Serialize(cacheDocument, JsonOptions));
+        await File.WriteAllTextAsync(CachePath, JsonSerializer.Serialize(cacheDocument, JsonOptions));
     }
 
     private void SyncConfiguredItems(List<ScripShopItem> latestItems)

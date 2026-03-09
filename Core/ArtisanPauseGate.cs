@@ -22,7 +22,7 @@ public readonly record struct ArtisanPauseStatus(
     bool StopRequested,
     bool EnduranceEnabled);
 
-public readonly record struct ArtisanPauseDecision(ArtisanPauseDecisionKind Kind, string? FailureMessage = null);
+public readonly record struct ArtisanPauseDecision(ArtisanPauseDecisionKind Kind);
 
 public static class ArtisanPauseGate
 {
@@ -39,7 +39,7 @@ public static class ArtisanPauseGate
         {
             ArtisanPauseGatePhase.WaitingForAcknowledgement => EvaluateAcknowledgement(status, elapsed, acknowledgementTimeout),
             ArtisanPauseGatePhase.WaitingForIdle => EvaluateIdle(status, elapsed, idleTimeout),
-            _ => new ArtisanPauseDecision(ArtisanPauseDecisionKind.Fail, $"未知的 Artisan 暂停阶段（{FormatStatus(status)}）"),
+            _ => new ArtisanPauseDecision(ArtisanPauseDecisionKind.Fail),
         };
 
     public static string FormatStatus(ArtisanPauseStatus status)
@@ -54,9 +54,7 @@ public static class ArtisanPauseGate
             return new ArtisanPauseDecision(ArtisanPauseDecisionKind.MoveToIdleWait);
 
         if (elapsed > acknowledgementTimeout)
-            return new ArtisanPauseDecision(
-                ArtisanPauseDecisionKind.Fail,
-                $"等待 Artisan 响应暂停请求超时（{FormatStatus(status)}）");
+            return new ArtisanPauseDecision(ArtisanPauseDecisionKind.Fail);
 
         return new ArtisanPauseDecision(ArtisanPauseDecisionKind.ContinueWaiting);
     }
@@ -67,9 +65,7 @@ public static class ArtisanPauseGate
         TimeSpan idleTimeout)
     {
         if (elapsed > idleTimeout)
-            return new ArtisanPauseDecision(
-                ArtisanPauseDecisionKind.Fail,
-                $"等待 Artisan 退出超时（{FormatStatus(status)}）");
+            return new ArtisanPauseDecision(ArtisanPauseDecisionKind.Fail);
 
         return new ArtisanPauseDecision(ArtisanPauseDecisionKind.ContinueWaiting);
     }

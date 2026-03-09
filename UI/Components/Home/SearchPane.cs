@@ -26,9 +26,9 @@ internal sealed class SearchPane
     public void Draw(Vector2 size)
     {
         using var _ = GamePanelStyle.BeginPanel("##SearchPane", size, GamePanelStyle.BorderSubtle);
-        GamePanelStyle.DrawPanelHeader("搜索工票物品", "从制作工票目录中搜索目标并加入当前兑换队列。");
+        GamePanelStyle.DrawPanelHeader(_plugin.GetText("home.search.title"), _plugin.GetText("home.search.description"));
 
-        GamePanelStyle.DrawSettingLabel("名称筛选");
+        GamePanelStyle.DrawSettingLabel(_plugin.GetText("home.search.filter_label"));
 
         ImGui.PushStyleColor(ImGuiCol.FrameBg, GamePanelStyle.Layer0);
         ImGui.PushStyleColor(ImGuiCol.FrameBgHovered, GamePanelStyle.Layer0);
@@ -51,7 +51,9 @@ internal sealed class SearchPane
                 ImGui.GetItemRectMin(),
                 ImGui.GetItemRectMax(),
                 ImGui.GetColorU32(GamePanelStyle.Accent),
-                6f, ImDrawFlags.RoundCornersAll, 1f);
+                6f,
+                ImDrawFlags.RoundCornersAll,
+                1f);
         }
 
         ImGui.PopStyleVar(2);
@@ -61,14 +63,14 @@ internal sealed class SearchPane
 
         if (ScripShopItemManager.IsLoading)
         {
-            GamePanelStyle.DrawHint("工票物品索引加载中...");
+            GamePanelStyle.DrawHint(_plugin.GetText("home.search.loading_hint"));
             return;
         }
 
         var allItems = ScripShopItemManager.ShopItems;
         if (allItems.Count == 0)
         {
-            GamePanelStyle.DrawHint("未加载到工票物品索引，可在设置页的\u201c物品索引\u201d中点击\u201c刷新物品列表\u201d。");
+            GamePanelStyle.DrawHint(_plugin.GetText("home.search.empty_hint"));
             return;
         }
 
@@ -77,7 +79,7 @@ internal sealed class SearchPane
         var configuredItemIds = GetConfiguredItemIds();
 
         ImGui.PushStyleColor(ImGuiCol.Text, GamePanelStyle.TextMuted);
-        var countText = $"显示 {filteredItems.Count} 条结果（最多 {MaxVisibleItems} 条）";
+        var countText = _plugin.GetText("home.search.count", filteredItems.Count, MaxVisibleItems);
         var countWidth = ImGui.CalcTextSize(countText).X;
         ImGui.SetCursorPosX(ImGui.GetContentRegionAvail().X - countWidth + ImGui.GetCursorPosX());
         ImGui.TextUnformatted(countText);
@@ -96,11 +98,11 @@ internal sealed class SearchPane
             return;
         }
 
-            ImGui.TableSetupColumn("名称", ImGuiTableColumnFlags.WidthStretch, 0.50f);
-            ImGui.TableSetupColumn("工票", ImGuiTableColumnFlags.WidthStretch, 0.22f);
-            ImGui.TableSetupColumn("单价", ImGuiTableColumnFlags.WidthFixed, 70f);
-            ImGui.TableSetupColumn("操作", ImGuiTableColumnFlags.WidthFixed, 64f);
-            ImGui.TableHeadersRow();
+        ImGui.TableSetupColumn(_plugin.GetText("home.search.table.name"), ImGuiTableColumnFlags.WidthStretch, 0.50f);
+        ImGui.TableSetupColumn(_plugin.GetText("home.search.table.currency"), ImGuiTableColumnFlags.WidthStretch, 0.22f);
+        ImGui.TableSetupColumn(_plugin.GetText("home.search.table.cost"), ImGuiTableColumnFlags.WidthFixed, 70f);
+        ImGui.TableSetupColumn(_plugin.GetText("home.search.table.action"), ImGuiTableColumnFlags.WidthFixed, 64f);
+        ImGui.TableHeadersRow();
 
         foreach (var item in filteredItems)
         {
@@ -124,7 +126,7 @@ internal sealed class SearchPane
             ImGui.PushStyleColor(ImGuiCol.ButtonHovered, GamePanelStyle.Tint(GamePanelStyle.Accent, 0.7f));
             ImGui.PushStyleColor(ImGuiCol.ButtonActive, GamePanelStyle.Tint(GamePanelStyle.Accent, 0.9f));
             ImGui.PushStyleVar(ImGuiStyleVar.FrameRounding, 6f);
-            if (ImGui.SmallButton("+"))
+            if (ImGui.SmallButton("+##SearchAdd"))
                 AddPurchaseItem(item);
             ImGui.PopStyleVar();
             ImGui.PopStyleColor(3);

@@ -17,7 +17,7 @@ internal sealed class HomeControlPane
     public void Draw(Vector2 size)
     {
         using var _ = GamePanelStyle.BeginPanel("##HomeControlPane", size, GamePanelStyle.BorderAccent, GamePanelStyle.Gold);
-        GamePanelStyle.DrawPanelHeader("指挥面板", "监控自动流程、调整当前清单，并快速执行核心操作。");
+        GamePanelStyle.DrawPanelHeader(_plugin.GetText("home.control.title"), _plugin.GetText("home.control.description"));
 
         DrawStatusSection();
         ImGui.Spacing();
@@ -27,37 +27,36 @@ internal sealed class HomeControlPane
         ImGui.Spacing();
         DrawQuickActions();
         ImGui.Spacing();
-        GamePanelStyle.DrawHint("\u201c开始\u201d会启动受管的 Artisan 清单；当背包空格低于阈值且存在可提交收藏品时，Starloom 会自动接管并执行提交 / 购买流程。若启动时空格已低于阈值，则会先做预检查，再决定是否先跑一轮 Starloom 流程。");
+        GamePanelStyle.DrawHint(_plugin.GetText("home.control.hint"));
     }
 
     private void DrawStatusSection()
     {
-        GamePanelStyle.DrawSectionTitle("运行状态", "当前调度器、任务与流程提示。");
+        GamePanelStyle.DrawSectionTitle(_plugin.GetText("home.control.total_state.title"), _plugin.GetText("home.control.total_state.description"));
         GamePanelStyle.DrawGradientSeparator();
 
         var schedulerColor = _plugin.IsAutomationBusy ? GamePanelStyle.Gold : GamePanelStyle.Success;
         GamePanelStyle.DrawStatusDot(schedulerColor);
-        GamePanelStyle.DrawInfoRow("调度器", _plugin.GetOrchestratorStateText());
-
-        GamePanelStyle.DrawInfoRow("当前任务", _plugin.GetCurrentJobDisplayName());
-        GamePanelStyle.DrawInfoRow("状态说明", _plugin.GetCurrentStatusText());
-        GamePanelStyle.DrawInfoRow("当前清单", _plugin.Config.ArtisanListId.ToString());
+        GamePanelStyle.DrawInfoRow("home.control.total_state", _plugin.GetText("common.state"), _plugin.GetOrchestratorStateText());
+        GamePanelStyle.DrawInfoRow("home.control.current_list", _plugin.GetText("common.current_list"), _plugin.Config.ArtisanListId.ToString());
     }
 
     private void DrawArtisanListSection()
     {
-        GamePanelStyle.DrawSectionTitle("Artisan 清单", "Starloom 会从该清单入口开始接管流程。");
+        GamePanelStyle.DrawSectionTitle(_plugin.GetText("home.control.artisan_list.title"), _plugin.GetText("home.control.artisan_list.description"));
 
         var artisanListId = _plugin.Config.ArtisanListId;
         var previousArtisanListId = artisanListId;
+
+        GamePanelStyle.DrawSettingLabel(_plugin.GetText("home.control.artisan_list.input_label"));
         ImGui.SetNextItemWidth(-1f);
-        if (ImGui.InputInt("Artisan 清单 ID##HomeArtisanListId", ref artisanListId, 0, 0))
+        if (ImGui.InputInt("##HomeArtisanListId", ref artisanListId, 0, 0))
             _plugin.Config.ArtisanListId = Math.Max(0, artisanListId);
 
         if (ImGui.IsItemDeactivatedAfterEdit() && _plugin.Config.ArtisanListId != previousArtisanListId)
             _plugin.SaveConfig();
 
-        GamePanelStyle.DrawHint("清单 ID 修改后会立即保存。若流程异常，优先检查这里是否指向你实际使用的 Artisan 清单。");
+        GamePanelStyle.DrawHint(_plugin.GetText("home.control.artisan_list.hint"));
     }
 
     private void DrawPrimaryActions()
@@ -65,10 +64,10 @@ internal sealed class HomeControlPane
         var buttonWidth = ImGui.GetContentRegionAvail().X;
         var isRunning = _plugin.IsAutomationBusy;
 
-        GamePanelStyle.DrawSectionTitle("主流程", "执行或中断完整的提交流程。");
-        if (GamePanelStyle.DrawActionButton("开始", GamePanelStyle.Accent, buttonWidth, !isRunning, "▶"))
+        GamePanelStyle.DrawSectionTitle(_plugin.GetText("home.control.workflow.title"), _plugin.GetText("home.control.workflow.description"));
+        if (GamePanelStyle.DrawActionButton("home.control.start", _plugin.GetText("common.start"), GamePanelStyle.Accent, buttonWidth, !isRunning, "▶"))
             _plugin.StartConfiguredWorkflow();
-        if (GamePanelStyle.DrawActionButton("停止", GamePanelStyle.Danger, buttonWidth, isRunning, "■"))
+        if (GamePanelStyle.DrawActionButton("home.control.stop", _plugin.GetText("common.stop"), GamePanelStyle.Danger, buttonWidth, isRunning, "■"))
             _plugin.StopAutomation();
     }
 
@@ -78,13 +77,13 @@ internal sealed class HomeControlPane
         var isRunning = _plugin.IsAutomationBusy;
         var hasConfiguredPurchases = _plugin.HasConfiguredPurchases;
 
-        GamePanelStyle.DrawSectionTitle("快捷操作", "单独执行某一段流程，用于临时手动接管。");
-        if (GamePanelStyle.DrawActionButton("提交收藏品", GamePanelStyle.Success, buttonWidth, !isRunning, "↑"))
+        GamePanelStyle.DrawSectionTitle(_plugin.GetText("home.control.quick.title"), _plugin.GetText("home.control.quick.description"));
+        if (GamePanelStyle.DrawActionButton("home.control.turn_in", _plugin.GetText("home.control.quick.turn_in"), GamePanelStyle.Success, buttonWidth, !isRunning, "↑"))
             _plugin.StartCollectableTurnIn();
-        if (GamePanelStyle.DrawActionButton("购买物品", GamePanelStyle.Warning, buttonWidth, !isRunning && hasConfiguredPurchases, "↓"))
+        if (GamePanelStyle.DrawActionButton("home.control.purchase", _plugin.GetText("home.control.quick.purchase"), GamePanelStyle.Warning, buttonWidth, !isRunning && hasConfiguredPurchases, "↓"))
             _plugin.StartPurchaseOnly();
 
         if (!hasConfiguredPurchases)
-            GamePanelStyle.DrawHint("购买物品按钮需要右侧兑换队列中至少配置一项物品。");
+            GamePanelStyle.DrawHint(_plugin.GetText("home.control.quick.hint_purchase_required"));
     }
 }

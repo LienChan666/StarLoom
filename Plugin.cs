@@ -20,6 +20,7 @@ public sealed class Plugin : IDalamudPlugin
     internal ServiceRegistry ServiceRegistry = null!;
     internal ConfigurationStore ConfigurationStore => ServiceRegistry.ConfigurationStore;
     internal Configuration Config => ServiceRegistry.Config;
+    internal LocalizationService Localization => ServiceRegistry.Localization;
     internal IArtisanIpc ArtisanIPC => ServiceRegistry.Artisan;
     internal INavigationService Navigation => ServiceRegistry.Navigation;
     internal INpcInteractionService NpcInteraction => ServiceRegistry.NpcInteraction;
@@ -46,7 +47,7 @@ public sealed class Plugin : IDalamudPlugin
 
         Svc.Commands.AddHandler(CommandName, new CommandInfo(OnCommand)
         {
-            HelpMessage = "打开 Starloom 主界面",
+            HelpMessage = "Open the Starloom window",
         });
 
         Svc.Framework.Update += OnFrameworkUpdate;
@@ -75,13 +76,16 @@ public sealed class Plugin : IDalamudPlugin
         => AutomationController.StopAutomation();
 
     internal string GetOrchestratorStateText()
-        => AutomationStatusPresenter.GetOrchestratorStateText();
+        => Localization.Get(AutomationStatusPresenter.GetOrchestratorStateKey());
 
-    internal string GetCurrentJobDisplayName()
-        => AutomationStatusPresenter.GetCurrentJobDisplayName();
+    internal string GetText(string key)
+        => Localization.Get(key);
 
-    internal string GetCurrentStatusText()
-        => AutomationStatusPresenter.GetCurrentStatusText();
+    internal string GetText(string key, params object[] args)
+        => Localization.Format(key, args);
+
+    internal void ReloadLocalization()
+        => Localization.Reload();
 
     private void OnFrameworkUpdate(Dalamud.Plugin.Services.IFramework framework)
         => AutomationController.Update();

@@ -24,7 +24,7 @@ public sealed class WorkflowStartValidator
             return true;
         }
 
-        errorMessage = "启动前需要先配置收藏品商店。";
+        errorMessage = "A collectable shop must be configured before starting.";
         return false;
     }
 
@@ -32,7 +32,7 @@ public sealed class WorkflowStartValidator
     {
         if (_config.ScripShopItems is not { Count: > 0 })
         {
-            errorMessage = "启动前，兑换物品列表为空。";
+            errorMessage = "The purchase list is empty.";
             return false;
         }
 
@@ -42,7 +42,7 @@ public sealed class WorkflowStartValidator
 
         if (validPurchaseItems.Count == 0)
         {
-            errorMessage = "启动前，兑换物品列表为空或没有有效目标数量。";
+            errorMessage = "The purchase list is empty or has no valid target quantities.";
             return false;
         }
 
@@ -52,7 +52,7 @@ public sealed class WorkflowStartValidator
 
         if (pending.Count == 0)
         {
-            errorMessage = "启动前，兑换清单中的所有物品都已达到目标数量。";
+            errorMessage = "All configured purchase items already reached their target quantities.";
             return false;
         }
 
@@ -65,7 +65,7 @@ public sealed class WorkflowStartValidator
         var configuredPoint = _config.DefaultCraftReturnPoint ?? Data.HousingReturnPoint.CreateInn();
         if (!HousingReturnPointService.TryResolveConfiguredPoint(configuredPoint, out var resolvedPoint))
         {
-            errorMessage = "\u542f\u52a8 Artisan \u524d\u65e0\u6cd5\u89e3\u6790\u914d\u7f6e\u7684\u8fd4\u56de\u70b9\uff0c\u8bf7\u91cd\u65b0\u9009\u62e9\u3002";
+            errorMessage = "Failed to resolve the configured return point before starting Artisan.";
             return false;
         }
 
@@ -77,7 +77,7 @@ public sealed class WorkflowStartValidator
                 return true;
             }
 
-            errorMessage = $"\u5f53\u524d\u4e0d\u5728 {resolvedPoint.DisplayName}\uff0c\u65e0\u6cd5\u542f\u52a8 Artisan \u6e05\u5355\u3002";
+            errorMessage = $"You are not currently at {resolvedPoint.DisplayName}, so the Artisan list cannot start.";
             return false;
         }
 
@@ -87,7 +87,7 @@ public sealed class WorkflowStartValidator
             return true;
         }
 
-        errorMessage = $"\u5f53\u524d\u4e0d\u5728 {resolvedPoint.DisplayName}\uff0c\u65e0\u6cd5\u542f\u52a8 Artisan \u6e05\u5355\u3002";
+        errorMessage = $"You are not currently at {resolvedPoint.DisplayName}, so the Artisan list cannot start.";
         return false;
     }
 }

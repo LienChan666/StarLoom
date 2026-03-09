@@ -7,6 +7,7 @@ namespace StarLoom.UI.Components.Home;
 
 internal sealed class HomeTab
 {
+    private readonly Plugin _plugin;
     private readonly HomeHeaderPanel _headerPanel;
     private readonly HomeControlPane _controlPane;
     private readonly SearchPane _searchPane;
@@ -14,6 +15,7 @@ internal sealed class HomeTab
 
     public HomeTab(Plugin plugin)
     {
+        _plugin = plugin;
         _headerPanel = new HomeHeaderPanel(plugin);
         _controlPane = new HomeControlPane(plugin);
         _searchPane = new SearchPane(plugin);
@@ -40,7 +42,7 @@ internal sealed class HomeTab
         ImGui.SameLine(0f, spacing);
 
         using var _ = GamePanelStyle.BeginPanel("##HomeFlowShell", new Vector2(rightWidth, availableSize.Y), GamePanelStyle.BorderSubtle);
-        GamePanelStyle.DrawPanelHeader("兑换编排区", "先搜索需要的工票物品，再在下方维护当前兑换队列。\n整个操作流保持在同一块面板内完成。");
+        GamePanelStyle.DrawPanelHeader(_plugin.GetText("home.flow.title"), _plugin.GetText("home.flow.description"));
 
         var contentHeight = ImGui.GetContentRegionAvail().Y;
         var verticalSpacing = GamePanelStyle.Spacing.Sm;

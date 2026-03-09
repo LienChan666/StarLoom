@@ -32,35 +32,36 @@ public sealed class CollectablePurchaseFlowSourceTests
     }
 
     [Fact]
-    public void Plugin_Appends_Post_Purchase_Action_After_Scrip_Purchase()
+    public void WorkflowBuilder_Appends_Post_Purchase_Action_After_Scrip_Purchase()
     {
-        var source = File.ReadAllText(Path.Combine(RepoRoot, "Plugin.cs"));
+        var source = File.ReadAllText(Path.Combine(RepoRoot, "Workflows", "WorkflowBuilder.cs"));
 
         Assert.Contains("BuildPostPurchaseActionJob()", source);
-        Assert.Contains("jobs.Add(new ScripPurchaseJob());", source);
+        Assert.Contains("new ScripPurchaseJob()", source);
+        Assert.Contains("BuildPostPurchaseActionJob(),", source);
         Assert.Contains("jobs.Add(BuildPostPurchaseActionJob());", source);
-        Assert.DoesNotContain("if (Config.DefaultCraftReturnPoint != null)", source);
     }
 
     [Fact]
-    public void Plugin_Only_Uses_Purchase_Preflight_For_Purchase_Entry_And_Pending_Configured_Runs()
+    public void WorkflowBuilder_Only_Runs_Configured_Purchases_For_Pending_Items()
     {
-        var source = File.ReadAllText(Path.Combine(RepoRoot, "Plugin.cs"));
+        var source = File.ReadAllText(Path.Combine(RepoRoot, "Workflows", "WorkflowBuilder.cs"));
 
         Assert.Contains("ShouldRunConfiguredPurchaseWorkflow()", source);
-        Assert.Contains("if (ShouldRunConfiguredPurchaseWorkflow())", source);
-        Assert.DoesNotContain("if (!EnsurePurchaseWorkflowCanStart(\"��������\"))", source);
-        Assert.Contains("if (!EnsurePurchaseWorkflowCanStart(\"��Ʊ����\"))", source);
+        Assert.Contains("_config.BuyAfterEachTurnIn && GetPendingPurchaseItems().Count > 0", source);
+        Assert.Contains("Where(item => item.Item != null && item.Quantity > 0)", source);
+        Assert.Contains("Where(item => _inventory.GetInventoryItemCount(item.Item!.ItemId) < item.Quantity)", source);
     }
 
     [Fact]
-    public void Plugin_Preflight_Check_Blocks_Empty_Or_Already_Completed_Purchase_List()
+    public void WorkflowStartValidator_Blocks_Empty_Or_Already_Completed_Purchase_List()
     {
-        var source = File.ReadAllText(Path.Combine(RepoRoot, "Plugin.cs"));
+        var source = File.ReadAllText(Path.Combine(RepoRoot, "Workflows", "WorkflowStartValidator.cs"));
 
-        Assert.Contains("�һ���Ʒ�б�Ϊ��", source);
-        Assert.Contains("ȫ���ѴﵽĿ������", source);
-        Assert.Contains("InventoryService.GetInventoryItemCount", source);
+        Assert.Contains("The purchase list is empty.", source);
+        Assert.Contains("The purchase list is empty or has no valid target quantities.", source);
+        Assert.Contains("All configured purchase items already reached their target quantities.", source);
+        Assert.Contains("_inventory.GetInventoryItemCount", source);
         Assert.Contains("item.Quantity > 0", source);
         Assert.Contains("item.Item != null", source);
     }
@@ -186,8 +187,8 @@ public sealed class CollectablePurchaseFlowSourceTests
         var source = File.ReadAllText(Path.Combine(RepoRoot, "Jobs", "ScripPurchaseJob.cs"));
 
         Assert.Contains("scrips < 0", source);
-        Assert.Contains("Fail($\"�޷���ȡ��Ʊ����", source);
-        Assert.Contains("Fail($\"��ǰ��Ʊ�����Թ��� 1 ��", source);
+        Assert.Contains("Fail($\"Could not read scrip count for", source);
+        Assert.Contains("Fail($\"Not enough scrips to purchase one item", source);
     }
 
     [Fact]
@@ -214,7 +215,7 @@ public sealed class CollectablePurchaseFlowSourceTests
     {
         var source = File.ReadAllText(Path.Combine(RepoRoot, "Jobs", "CollectableTurnInJob.cs"));
 
-        Assert.Contains("�ȴ��ղ�Ʒ���ڳ�ʱ", source);
+        Assert.Contains("Timed out while waiting for the collectable window.", source);
         Assert.Contains("_stateEnteredAt", source);
         Assert.Contains("if (_context!.NpcInteraction.TryInteract(GetPreferredShop().NpcId))", source);
     }
@@ -235,7 +236,7 @@ public sealed class CollectablePurchaseFlowSourceTests
     {
         var source = File.ReadAllText(Path.Combine(RepoRoot, "Jobs", "ScripPurchaseJob.cs"));
 
-        Assert.Contains("�ȴ���Ʊ�̵괰�ڳ�ʱ", source);
+        Assert.Contains("Timed out while waiting for the scrip shop window.", source);
         Assert.Contains("_stateEnteredAt", source);
         Assert.Contains("if (_context!.NpcInteraction.TryInteract(GetPreferredShop().ScripShopNpcId))", source);
     }

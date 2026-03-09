@@ -73,7 +73,7 @@ internal static class GamePanelStyle
         ImGui.Dummy(new Vector2(0, Spacing.Sm));
     }
 
-    /// <summary>在文字前绘制一个 6px 直径的状态圆点。</summary>
+    /// <summary>Draw a 6px status dot before the current text line.</summary>
     internal static void DrawStatusDot(Vector4 color)
     {
         var drawList = ImGui.GetWindowDrawList();
@@ -85,7 +85,7 @@ internal static class GamePanelStyle
         ImGui.SameLine();
     }
 
-    /// <summary>绘制药丸形 badge。</summary>
+    /// <summary>Draw a pill badge.</summary>
     internal static void DrawPillBadge(string text, Vector4 accentColor)
     {
         var drawList = ImGui.GetWindowDrawList();
@@ -136,9 +136,9 @@ internal static class GamePanelStyle
         }
     }
 
-    internal static void DrawInfoRow(string label, string value)
+    internal static void DrawInfoRow(string id, string label, string value)
     {
-        if (ImGui.BeginTable($"##InfoRow_{label}", 2, ImGuiTableFlags.SizingStretchProp | ImGuiTableFlags.NoSavedSettings))
+        if (ImGui.BeginTable($"##InfoRow_{id}", 2, ImGuiTableFlags.SizingStretchProp | ImGuiTableFlags.NoSavedSettings))
         {
             ImGui.TableSetupColumn("##Label", ImGuiTableColumnFlags.WidthFixed, 100f);
             ImGui.TableSetupColumn("##Value", ImGuiTableColumnFlags.WidthStretch);
@@ -187,8 +187,8 @@ internal static class GamePanelStyle
         ImGui.PopStyleColor();
     }
 
-    /// <summary>绘制带可选图标前缀的操作按钮。</summary>
-    internal static bool DrawActionButton(string label, Vector4 color, float width, bool enabled, string? icon = null)
+    /// <summary>Draw an action button with an optional icon and stable ImGui id.</summary>
+    internal static bool DrawActionButton(string id, string label, Vector4 color, float width, bool enabled, string? icon = null)
     {
         ImGui.PushStyleVar(ImGuiStyleVar.FrameRounding, 6f);
         if (enabled)
@@ -206,7 +206,7 @@ internal static class GamePanelStyle
         }
 
         ImGui.BeginDisabled(!enabled);
-        var displayLabel = icon != null ? $"{icon} {label}" : label;
+        var displayLabel = icon != null ? $"{icon} {label}##{id}" : $"{label}##{id}";
         var clicked = ImGui.Button(displayLabel, new Vector2(width, 34f));
         ImGui.EndDisabled();
 
@@ -219,7 +219,7 @@ internal static class GamePanelStyle
         return clicked;
     }
 
-    /// <summary>为表格推入统一的表格配色样式。调用后需配对 PopTableStyle()。</summary>
+    /// <summary>Push shared table styling. Pair this with PopTableStyle().</summary>
     internal static void PushTableStyle()
     {
         ImGui.PushStyleColor(ImGuiCol.TableHeaderBg, Layer0);
@@ -228,7 +228,7 @@ internal static class GamePanelStyle
         ImGui.PushStyleColor(ImGuiCol.TableBorderLight, SeparatorDim);
     }
 
-    /// <summary>弹出 PushTableStyle 推入的样式。</summary>
+    /// <summary>Pop the colors pushed by PushTableStyle().</summary>
     internal static void PopTableStyle()
     {
         ImGui.PopStyleColor(4);

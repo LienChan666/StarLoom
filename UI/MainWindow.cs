@@ -3,18 +3,21 @@ using Dalamud.Interface.Windowing;
 using StarLoom.UI.Components.Home;
 using StarLoom.UI.Components.Settings;
 using StarLoom.UI.Components.Shared;
+using System;
 using System.Numerics;
 
 namespace StarLoom.UI;
 
 public sealed class MainWindow : Window
 {
+    private readonly Plugin _plugin;
     private readonly HomeTab _homeTab;
     private readonly SettingsTab _settingsTab;
 
     public MainWindow(Plugin plugin, PluginUi pluginUi)
         : base("Starloom###StarloomMainWindow")
     {
+        _plugin = plugin;
         _homeTab = new HomeTab(plugin);
         _settingsTab = new SettingsTab(plugin, pluginUi);
     }
@@ -41,15 +44,15 @@ public sealed class MainWindow : Window
         if (!ImGui.BeginTabBar("##StarloomTabs"))
             return;
 
-        DrawTab("主页", () => _homeTab.Draw());
-        DrawTab("设置", () => _settingsTab.Draw());
+        DrawTab("home", _plugin.GetText("main.tab.home"), () => _homeTab.Draw());
+        DrawTab("settings", _plugin.GetText("main.tab.settings"), () => _settingsTab.Draw());
 
         ImGui.EndTabBar();
     }
 
-    private static void DrawTab(string label, System.Action drawContent)
+    private static void DrawTab(string id, string label, Action drawContent)
     {
-        if (ImGui.BeginTabItem(label))
+        if (ImGui.BeginTabItem($"{label}##{id}"))
         {
             var drawList = ImGui.GetWindowDrawList();
             var min = ImGui.GetItemRectMin();

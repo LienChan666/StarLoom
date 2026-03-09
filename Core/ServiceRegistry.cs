@@ -10,6 +10,7 @@ public sealed class ServiceRegistry
     public ServiceRegistry(ConfigurationStore configurationStore)
     {
         ConfigurationStore = configurationStore;
+        Localization = new LocalizationService(configurationStore);
         Inventory = new InventoryServiceAdapter();
         Artisan = new ArtisanIPC();
         Navigation = new NavigationService();
@@ -21,6 +22,7 @@ public sealed class ServiceRegistry
 
     public ConfigurationStore ConfigurationStore { get; }
     public Configuration Config => ConfigurationStore.Configuration;
+    public LocalizationService Localization { get; }
     public IInventoryService Inventory { get; }
     public IArtisanIpc Artisan { get; }
     public NavigationService Navigation { get; }

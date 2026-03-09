@@ -1,3 +1,4 @@
+using ECommons.DalamudServices;
 using ECommons.UIHelpers.AddonMasterImplementations;
 using FFXIVClientStructs.FFXIV.Client.UI;
 using Lumina.Excel.Sheets;
@@ -49,7 +50,6 @@ public sealed unsafe class CollectableTurnInJob : IAutomationJob
     private int _inventoryCountBeforeSubmit;
 
     public string Id => "collectable-turn-in";
-    public string StatusText { get; private set; } = "空闲";
     public JobStatus Status { get; private set; } = JobStatus.Idle;
     public bool OvercapDetected { get; private set; }
 
@@ -66,7 +66,6 @@ public sealed unsafe class CollectableTurnInJob : IAutomationJob
         _stateMachine.Configure(TurnInState.WaitingForSubmit, WaitForSubmit);
         _stateMachine.Configure(TurnInState.CheckingForMore, CheckForMore);
         _stateMachine.Configure(TurnInState.Completed, Complete);
-        _stateMachine.Configure(TurnInState.Failed, () => Fail(StatusText));
     }
 
     public bool CanStart() => InventoryService.HasCollectableTurnIns();
@@ -78,14 +77,11 @@ public sealed unsafe class CollectableTurnInJob : IAutomationJob
         InventoryService.InvalidateTransientCaches();
         if (context.Config.PreferredCollectableShop == null)
         {
-            Status = JobStatus.Failed;
-            StatusText = "未配置收藏品商店。";
-            TransitionTo(TurnInState.Failed);
+            Fail("Collectable shop is not configured.");
             return;
         }
 
         Status = JobStatus.Running;
-        StatusText = "正在扫描收藏品";
         TransitionTo(TurnInState.CheckingInventory);
     }
 
@@ -100,7 +96,7 @@ public sealed unsafe class CollectableTurnInJob : IAutomationJob
         }
         catch (Exception ex)
         {
-            Fail($"收藏品提交异常：{ex.Message}");
+            Fail($"Collectable turn-in failed: {ex.Message}");
         }
     }
 
@@ -110,7 +106,6 @@ public sealed unsafe class CollectableTurnInJob : IAutomationJob
         _shopAddon.CloseWindow();
         ResetRunState();
         Status = JobStatus.Idle;
-        StatusText = "已停止";
     }
 
     private void ResetRunState()
@@ -130,7 +125,6 @@ public sealed unsafe class CollectableTurnInJob : IAutomationJob
 
     private void CheckInventory()
     {
-        StatusText = "正在扫描收藏品";
         var collectables = InventoryService.GetCurrentInventoryItems()
             .Where(item => item.IsCollectable && InventoryService.IsCollectableTurnInItem(item.BaseItemId))
             .GroupBy(item => item.BaseItemId)
@@ -159,7 +153,6 @@ public sealed unsafe class CollectableTurnInJob : IAutomationJob
         var shop = GetPreferredShop();
         if (!_navigationStarted)
         {
-            StatusText = "正在前往收藏品 NPC";
             _context!.Navigation.NavigateTo(new NavigationTarget(
                 shop.Location,
                 shop.AetheryteId,
@@ -180,12 +173,11 @@ public sealed unsafe class CollectableTurnInJob : IAutomationJob
         }
 
         if (_context.Navigation.State == NavigationService.NavigationState.Failed)
-            Fail(_context.Navigation.ErrorMessage ?? "无法到达收藏品 NPC");
+            Fail(_context.Navigation.ErrorMessage ?? "Could not reach the collectable NPC.");
     }
 
     private void WaitForShopWindow()
     {
-        StatusText = "正在打开收藏品窗口";
         if (_shopAddon.IsReady)
         {
             TransitionTo(TurnInState.SelectingJob);
@@ -195,7 +187,7 @@ public sealed unsafe class CollectableTurnInJob : IAutomationJob
 
         if ((DateTime.UtcNow - _stateEnteredAt) > _shopWindowTimeout)
         {
-            Fail("等待收藏品窗口超时。");
+            Fail("Timed out while waiting for the collectable window.");
             return;
         }
 
@@ -211,7 +203,6 @@ public sealed unsafe class CollectableTurnInJob : IAutomationJob
         if ((DateTime.UtcNow - _lastAction) < _actionDelay)
             return;
 
-        StatusText = "正在选择收藏品职业页签";
         if (_turnInQueue.Count == 0)
         {
             TransitionTo(TurnInState.Completed);
@@ -234,7 +225,6 @@ public sealed unsafe class CollectableTurnInJob : IAutomationJob
         if ((DateTime.UtcNow - _lastAction) < _actionDelay)
             return;
 
-        StatusText = "正在选择收藏品条目";
         var next = _turnInQueue.Peek();
         if (_currentItemId != next.itemId)
         {
@@ -252,7 +242,6 @@ public sealed unsafe class CollectableTurnInJob : IAutomationJob
         if ((DateTime.UtcNow - _lastAction) < _actionDelay)
             return;
 
-        StatusText = "正在提交收藏品";
         InventoryService.InvalidateTransientCaches();
         _inventoryCountBeforeSubmit = InventoryService.GetCollectableInventoryItemCount(_currentItemId);
         _submitStartedAt = DateTime.UtcNow;
@@ -269,7 +258,6 @@ public sealed unsafe class CollectableTurnInJob : IAutomationJob
             new AddonMaster.SelectYesno((IntPtr)addon).No();
             OvercapDetected = true;
             _shopAddon.CloseWindow();
-            StatusText = "检测到工票溢出";
             TransitionTo(TurnInState.Completed);
             return;
         }
@@ -288,7 +276,7 @@ public sealed unsafe class CollectableTurnInJob : IAutomationJob
         if (currentCount >= _inventoryCountBeforeSubmit)
         {
             if ((DateTime.UtcNow - _submitStartedAt) > _submitTimeout)
-                Fail($"收藏品提交未生效：{current.name}");
+                Fail($"Collectable submission did not complete: {current.name}");
 
             return;
         }
@@ -329,7 +317,6 @@ public sealed unsafe class CollectableTurnInJob : IAutomationJob
         _shopAddon.CloseWindow();
         InventoryService.InvalidateTransientCaches();
         Status = JobStatus.Completed;
-        StatusText = OvercapDetected ? "收藏品提交完成（检测到工票溢出）" : "收藏品提交完成";
         TransitionTo(TurnInState.Idle);
     }
 
@@ -339,7 +326,7 @@ public sealed unsafe class CollectableTurnInJob : IAutomationJob
         _shopAddon.CloseWindow();
         InventoryService.InvalidateTransientCaches();
         Status = JobStatus.Failed;
-        StatusText = message;
+        Svc.Log.Error($"[Starloom] CollectableTurnInJob failed: {message}");
         TransitionTo(TurnInState.Failed);
     }
 

@@ -9,7 +9,6 @@ public sealed class CompoundJob : IAutomationJob
     private JobContext? _context;
 
     public string Id { get; }
-    public string StatusText => _currentIndex < _jobs.Count ? _jobs[_currentIndex].StatusText : "已完成";
     public JobStatus Status { get; private set; } = JobStatus.Idle;
 
     public CompoundJob(string id, params IAutomationJob[] jobs)

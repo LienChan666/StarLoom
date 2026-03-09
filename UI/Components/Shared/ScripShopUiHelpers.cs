@@ -19,10 +19,10 @@ internal static class ScripShopUiHelpers
             return item.CurrencyName;
 
         if (item.Discipline == ScripDiscipline.Crafting)
-            return "巧手工票";
+            return Plugin.P.GetText("currency.crafting");
 
         return item.Discipline == ScripDiscipline.Gathering
-            ? "采集工票"
-            : "未知工票";
+            ? Plugin.P.GetText("currency.gathering")
+            : Plugin.P.GetText("currency.unknown");
     }
 }

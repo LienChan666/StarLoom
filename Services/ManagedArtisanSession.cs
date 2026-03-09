@@ -29,8 +29,6 @@ public sealed class ManagedArtisanSession
     private bool _warnedMissingCollectablesAtThreshold;
 
     public ManagedArtisanSessionState State { get; private set; } = ManagedArtisanSessionState.Idle;
-    public string StatusText { get; private set; } = "空闲";
-    public string? ErrorMessage { get; private set; }
     public bool IsActive => State is not ManagedArtisanSessionState.Idle and not ManagedArtisanSessionState.Failed;
 
     public ManagedArtisanSession(
@@ -47,66 +45,65 @@ public sealed class ManagedArtisanSession
         _workflowValidator = workflowValidator;
     }
 
-    public string GetStateText()
+    public string GetStateKey()
         => State switch
         {
-            ManagedArtisanSessionState.Idle => "空闲",
-            ManagedArtisanSessionState.WaitingForPreStartJobs => "启动前预处理",
-            ManagedArtisanSessionState.WaitingForArtisanStart => "等待 Artisan 启动",
-            ManagedArtisanSessionState.Monitoring => "监控 Artisan",
-            ManagedArtisanSessionState.WaitingForThresholdJobs => "低空格处理中",
-            ManagedArtisanSessionState.Failed => "联动失败",
-            _ => State.ToString(),
+            ManagedArtisanSessionState.Idle => "state.session.idle",
+            ManagedArtisanSessionState.WaitingForPreStartJobs => "state.session.pre_start",
+            ManagedArtisanSessionState.WaitingForArtisanStart => "state.session.waiting_start",
+            ManagedArtisanSessionState.Monitoring => "state.session.monitoring",
+            ManagedArtisanSessionState.WaitingForThresholdJobs => "state.session.threshold_jobs",
+            ManagedArtisanSessionState.Failed => "state.session.failed",
+            _ => "state.session.idle",
         };
 
     public bool TryStart()
     {
         if (IsActive || _orchestrator.IsRunning)
         {
-            SetFailure("当前已有联动流程在运行中。", stopArtisan: false);
+            SetFailure("A managed Artisan session is already running.", stopArtisan: false);
             return false;
         }
 
         if (!_artisan.IsAvailable())
         {
-            SetFailure("未检测到 Artisan，无法启动联动。", stopArtisan: false);
+            SetFailure("Artisan is not available.", stopArtisan: false);
             return false;
         }
 
         if (_config.ArtisanListId <= 0)
         {
-            SetFailure("请先在设置中填写 Artisan 清单 ID。", stopArtisan: false);
+            SetFailure("Artisan list id is required.", stopArtisan: false);
             return false;
         }
 
         if (_artisan.IsListRunning() || _artisan.GetEnduranceStatus() || _artisan.IsBusy())
         {
-            SetFailure("Artisan 当前已有任务运行，请先停止后再由 Starloom 接管。", stopArtisan: false);
+            SetFailure("Artisan is busy with another task.", stopArtisan: false);
             return false;
         }
 
-        ErrorMessage = null;
         _warnedMissingCollectablesAtThreshold = false;
 
         if (_artisan.GetStopRequest())
             _artisan.SetStopRequest(false);
 
         if (!IsBelowFreeSlotThreshold())
-            return TryStartArtisanList("正在启动 Artisan 清单...");
+            return TryStartArtisanList();
 
         if (!InventoryService.HasCollectableTurnIns())
         {
-            SetFailure("当前背包空格已低于阈值，且没有可提交的收藏品，无法启动 Artisan 清单。", stopArtisan: false);
+            SetFailure("Inventory is below the free-slot threshold and there are no turn-ins available.", stopArtisan: false);
             return false;
         }
 
         if (!_orchestrator.TryStart(_jobFactory()))
         {
-            SetFailure("无法启动 Starloom 预处理流程。", stopArtisan: false);
+            SetFailure("Failed to start the Starloom pre-start workflow.", stopArtisan: false);
             return false;
         }
 
-        TransitionTo(ManagedArtisanSessionState.WaitingForPreStartJobs, "背包空格不足，正在先执行收藏品流程...", preserveError: false);
+        TransitionTo(ManagedArtisanSessionState.WaitingForPreStartJobs);
         return true;
     }
 
@@ -118,9 +115,8 @@ public sealed class ManagedArtisanSession
         if (_artisan.IsAvailable() && (_artisan.IsListRunning() || _artisan.GetEnduranceStatus() || _artisan.IsBusy()))
             _artisan.SetStopRequest(true);
 
-        ErrorMessage = null;
         _warnedMissingCollectablesAtThreshold = false;
-        TransitionTo(ManagedArtisanSessionState.Idle, "已停止联动流程。", preserveError: false);
+        TransitionTo(ManagedArtisanSessionState.Idle);
     }
 
     public void Update()
@@ -152,19 +148,16 @@ public sealed class ManagedArtisanSession
     private void UpdatePreStartJobs()
     {
         if (_orchestrator.IsRunning)
-        {
-            StatusText = "正在执行启动前的收藏品流程...";
             return;
-        }
 
         if (_orchestrator.State == OrchestratorState.Failed)
         {
-            SetFailure(_orchestrator.ErrorMessage ?? "启动前的收藏品流程失败。", stopArtisan: false);
+            SetFailure("Pre-start turn-in workflow failed.", stopArtisan: false);
             return;
         }
 
         if (_orchestrator.State == OrchestratorState.Completed)
-            TryStartArtisanList("收藏品流程完成，正在启动 Artisan 清单...");
+            TryStartArtisanList();
     }
 
     private void UpdateWaitingForArtisanStart()
@@ -172,38 +165,36 @@ public sealed class ManagedArtisanSession
         if (_artisan.IsListRunning())
         {
             _warnedMissingCollectablesAtThreshold = false;
-            TransitionTo(ManagedArtisanSessionState.Monitoring, "Artisan 清单已启动，正在监控背包空位。", preserveError: false);
+            TransitionTo(ManagedArtisanSessionState.Monitoring);
             return;
         }
 
         if (TimedOut(8))
-            SetFailure("等待 Artisan 启动清单超时。", stopArtisan: false);
+            SetFailure("Timed out while waiting for Artisan to start the list.", stopArtisan: false);
     }
 
     private void UpdateMonitoring()
     {
         if (_orchestrator.IsRunning)
         {
-            TransitionTo(ManagedArtisanSessionState.WaitingForThresholdJobs, "正在执行收藏品流程...", preserveError: false);
+            TransitionTo(ManagedArtisanSessionState.WaitingForThresholdJobs);
             return;
         }
 
         if (!_artisan.IsListRunning())
         {
-            TransitionTo(ManagedArtisanSessionState.Idle, "Artisan 清单已结束。", preserveError: false);
+            TransitionTo(ManagedArtisanSessionState.Idle);
             return;
         }
 
         if (!IsBelowFreeSlotThreshold())
         {
             _warnedMissingCollectablesAtThreshold = false;
-            StatusText = "Artisan 清单运行中，正在监控背包空位。";
             return;
         }
 
         if (!InventoryService.HasCollectableTurnIns())
         {
-            StatusText = "背包空格低于阈值，但没有可提交的收藏品。";
             if (!_warnedMissingCollectablesAtThreshold)
             {
                 _warnedMissingCollectablesAtThreshold = true;
@@ -214,25 +205,22 @@ public sealed class ManagedArtisanSession
 
         if (!_orchestrator.TryStart(_jobFactory()))
         {
-            SetFailure("无法启动低空格接管流程。", stopArtisan: true);
+            SetFailure("Failed to start the low-space handoff workflow.", stopArtisan: true);
             return;
         }
 
         _warnedMissingCollectablesAtThreshold = false;
-        TransitionTo(ManagedArtisanSessionState.WaitingForThresholdJobs, "背包空格不足，正在执行收藏品流程...", preserveError: false);
+        TransitionTo(ManagedArtisanSessionState.WaitingForThresholdJobs);
     }
 
     private void UpdateThresholdJobs()
     {
         if (_orchestrator.IsRunning)
-        {
-            StatusText = "正在执行收藏品流程...";
             return;
-        }
 
         if (_orchestrator.State == OrchestratorState.Failed)
         {
-            SetFailure(_orchestrator.ErrorMessage ?? "收藏品流程失败。", stopArtisan: true);
+            SetFailure("Turn-in workflow failed.", stopArtisan: true);
             return;
         }
 
@@ -240,23 +228,23 @@ public sealed class ManagedArtisanSession
         {
             if (!_orchestrator.TryStart(_jobFactory()))
             {
-                SetFailure("无法继续执行低空格接管流程。", stopArtisan: true);
+                SetFailure("Failed to continue the low-space handoff workflow.", stopArtisan: true);
                 return;
             }
 
-            TransitionTo(ManagedArtisanSessionState.WaitingForThresholdJobs, "收藏品仍未处理完，继续执行低空格流程...", preserveError: false);
+            TransitionTo(ManagedArtisanSessionState.WaitingForThresholdJobs);
             return;
         }
 
         if (_orchestrator.State == OrchestratorState.Completed)
-            TransitionTo(ManagedArtisanSessionState.Monitoring, "收藏品流程完成，已恢复 Artisan 清单。", preserveError: false);
+            TransitionTo(ManagedArtisanSessionState.Monitoring);
     }
 
-    private bool TryStartArtisanList(string statusText)
+    private bool TryStartArtisanList()
     {
         if (_config.ArtisanListId <= 0)
         {
-            SetFailure("请先在设置中填写 Artisan 清单 ID。", stopArtisan: false);
+            SetFailure("Artisan list id is required.", stopArtisan: false);
             return false;
         }
 
@@ -270,7 +258,7 @@ public sealed class ManagedArtisanSession
             _artisan.SetStopRequest(false);
 
         _artisan.StartListById(_config.ArtisanListId);
-        TransitionTo(ManagedArtisanSessionState.WaitingForArtisanStart, statusText, preserveError: false);
+        TransitionTo(ManagedArtisanSessionState.WaitingForArtisanStart);
         return true;
     }
 
@@ -279,21 +267,19 @@ public sealed class ManagedArtisanSession
 
     private void SetFailure(string message, bool stopArtisan)
     {
-        ErrorMessage = message;
         if (stopArtisan && _artisan.IsAvailable() && (_artisan.IsListRunning() || _artisan.GetEnduranceStatus() || _artisan.IsBusy()))
             _artisan.SetStopRequest(true);
 
-        TransitionTo(ManagedArtisanSessionState.Failed, message);
+        Svc.Log.Error($"[Starloom] Managed session failed: {message}");
+        TransitionTo(ManagedArtisanSessionState.Failed);
     }
 
-    private void TransitionTo(ManagedArtisanSessionState newState, string statusText, bool preserveError = true)
+    private void TransitionTo(ManagedArtisanSessionState newState)
     {
         State = newState;
-        StatusText = statusText;
         _stateEnteredAt = DateTime.UtcNow;
 
-        if (!preserveError)
-            ErrorMessage = null;
+        Svc.Log.Info($"[Starloom] Managed session -> {newState}");
     }
 
     private bool TimedOut(int seconds)

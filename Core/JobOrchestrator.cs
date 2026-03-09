@@ -30,7 +30,6 @@ public sealed class JobOrchestrator : IDisposable
 
     public IAutomationJob? CurrentJob { get; private set; }
     public OrchestratorState State { get; private set; } = OrchestratorState.Idle;
-    public string? ErrorMessage { get; private set; }
     public bool IsRunning => State is OrchestratorState.WaitingForArtisanPause or OrchestratorState.WaitingForArtisanIdle or OrchestratorState.RunningJobs;
 
     public JobOrchestrator(IArtisanIpc artisan, JobContext context)
@@ -66,7 +65,6 @@ public sealed class JobOrchestrator : IDisposable
             return;
         }
 
-        ErrorMessage = null;
         if (_artisan.IsAvailable() && (_artisan.IsListRunning() || _artisan.GetEnduranceStatus()))
         {
             _artisan.SetStopRequest(true);
@@ -116,7 +114,7 @@ public sealed class JobOrchestrator : IDisposable
                 return;
 
             case ArtisanPauseDecisionKind.Fail:
-                Fail(decision.FailureMessage ?? $"等待 Artisan 暂停失败（{ArtisanPauseGate.FormatStatus(status)}）");
+                Fail($"Failed to pause Artisan ({ArtisanPauseGate.FormatStatus(status)})");
                 return;
         }
     }
@@ -154,7 +152,7 @@ public sealed class JobOrchestrator : IDisposable
             ArtisanIdleTimeout);
 
         if (decision.Kind == ArtisanPauseDecisionKind.Fail)
-            Fail($"{decision.FailureMessage}（{LocalPlayerActionGate.FormatStatus(localStatus)}）");
+            Fail($"Artisan did not become idle ({ArtisanPauseGate.FormatStatus(artisanStatus)}) ({LocalPlayerActionGate.FormatStatus(localStatus)})");
     }
 
     private void UpdateRunningJobs()
@@ -186,7 +184,7 @@ public sealed class JobOrchestrator : IDisposable
                 break;
 
             case JobStatus.Failed:
-                var error = CurrentJob.StatusText;
+                var error = CurrentJob.Id;
                 CurrentJob.Stop();
                 CurrentJob = null;
                 Fail(error);
@@ -196,10 +194,10 @@ public sealed class JobOrchestrator : IDisposable
 
     public void Abort()
     {
+        Svc.Log.Info("[Starloom] Orchestrator abort requested.");
         CurrentJob?.Stop();
         CurrentJob = null;
         _pendingJobs.Clear();
-        ErrorMessage = null;
         RestoreArtisanStopRequest();
         TransitionTo(OrchestratorState.Idle);
     }
@@ -208,23 +206,22 @@ public sealed class JobOrchestrator : IDisposable
     {
         CurrentJob = null;
         _pendingJobs.Clear();
-        ErrorMessage = null;
         TransitionTo(OrchestratorState.Idle);
     }
 
     private void CompleteRun()
     {
-        ErrorMessage = null;
         RestoreArtisanStopRequest();
         TransitionTo(OrchestratorState.Completed);
+        Svc.Log.Info("[Starloom] Orchestrator completed.");
     }
 
     private void Fail(string message)
     {
-        ErrorMessage = message;
         _pendingJobs.Clear();
         RestoreArtisanStopRequest();
         TransitionTo(OrchestratorState.Failed);
+        Svc.Log.Error($"[Starloom] Orchestrator failed: {message}");
     }
 
     private void RestoreArtisanStopRequest()
@@ -237,6 +234,8 @@ public sealed class JobOrchestrator : IDisposable
     {
         State = newState;
         _stateEnteredAt = DateTime.UtcNow;
+
+        Svc.Log.Info($"[Starloom] Orchestrator -> {newState}");
 
         if (newState != OrchestratorState.WaitingForArtisanIdle)
             _localActionReadyAt = null;

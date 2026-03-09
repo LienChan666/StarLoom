@@ -46,28 +46,33 @@ public sealed class AutomationController
     {
         if (!WorkflowValidator.CanStartCollectableWorkflow(out var errorMessage))
         {
+            Svc.Log.Error($"[Starloom] Cannot start configured workflow: {errorMessage}");
             return;
         }
 
         if (!ManagedSession.TryStart())
             return;
+
+        Svc.Log.Info("[Starloom] Started configured workflow.");
     }
 
     public void StartCollectableTurnIn()
-        => StartJobs(new IAutomationJob[] { new CollectableTurnInJob() }, "收藏品提交");
+        => StartJobs(new IAutomationJob[] { new CollectableTurnInJob() }, "collectable-turn-in");
 
     public void StartPurchaseOnly()
     {
         if (!WorkflowValidator.CanStartPurchaseWorkflow(out var purchaseError))
         {
+            Svc.Log.Error($"[Starloom] Cannot start purchase workflow: {purchaseError}");
             return;
         }
 
-        StartJobs(WorkflowBuilder.CreatePurchaseWorkflow(), "工票购买");
+        StartJobs(WorkflowBuilder.CreatePurchaseWorkflow(), "purchase");
     }
 
     public void StopAutomation()
     {
+        Svc.Log.Info("[Starloom] Stop requested.");
         if (ManagedSession.IsActive)
         {
             ManagedSession.Stop();
@@ -92,15 +97,19 @@ public sealed class AutomationController
     {
         if (!WorkflowValidator.CanStartCollectableWorkflow(out var errorMessage))
         {
+            Svc.Log.Error($"[Starloom] Cannot start {actionName}: {errorMessage}");
             return;
         }
 
         if (ManagedSession.IsActive)
         {
+            Svc.Log.Warning($"[Starloom] Skipped {actionName}: managed session is active.");
             return;
         }
 
         if (!Orchestrator.TryStart(jobs))
             return;
+
+        Svc.Log.Info($"[Starloom] Started {actionName}.");
     }
 }

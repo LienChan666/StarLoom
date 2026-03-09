@@ -6,6 +6,8 @@ using StarLoom.Data;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Security.Cryptography;
+using System.Text;
 
 namespace StarLoom.Services;
 
@@ -15,9 +17,111 @@ public sealed unsafe class ScripShopCatalogBuilder
 
     public string GetCatalogVersion()
     {
-        var inclusionShopCount = Svc.Data.GetExcelSheet<InclusionShop>()?.LongCount() ?? 0;
-        var inclusionShopSeriesCount = Svc.Data.GetSubrowExcelSheet<InclusionShopSeries>()?.LongCount() ?? 0;
-        return $"{ScripInclusionShopId}:{inclusionShopCount}:{inclusionShopSeriesCount}";
+        var inclusionShopSheet = Svc.Data.GetExcelSheet<InclusionShop>();
+        var inclusionShopSeriesSheet = Svc.Data.GetSubrowExcelSheet<InclusionShopSeries>();
+        var itemSheet = Svc.Data.GetExcelSheet<Item>();
+
+        if (inclusionShopSheet is null)
+            throw new InvalidOperationException("Failed to read the InclusionShop sheet.");
+        if (inclusionShopSeriesSheet is null)
+            throw new InvalidOperationException("Failed to read the InclusionShopSeries sheet.");
+        if (itemSheet is null)
+            throw new InvalidOperationException("Failed to read the Item sheet.");
+
+        var shop = inclusionShopSheet.GetRow(ScripInclusionShopId);
+        if (shop.RowId == 0)
+            throw new InvalidOperationException($"Failed to find InclusionShop row {ScripInclusionShopId}.");
+
+        var seriesLookup = inclusionShopSeriesSheet
+            .SelectMany(group => group)
+            .GroupBy(row => row.RowId)
+            .ToDictionary(group => group.Key, group => group.OrderBy(row => row.SubrowId).ToList());
+
+        var signatureBuilder = new StringBuilder();
+        signatureBuilder.Append("shop:").Append(ScripInclusionShopId).Append(';');
+
+        for (var page = 0; page < shop.Category.Count; page++)
+        {
+            var category = shop.Category[page];
+            var seriesId = category.IsValid ? category.Value.InclusionShopSeries.RowId : 0u;
+
+            signatureBuilder
+                .Append("page:")
+                .Append(page)
+                .Append(':')
+                .Append(category.IsValid ? 1 : 0)
+                .Append(':')
+                .Append(seriesId)
+                .Append(';');
+
+            if (seriesId == 0 || !seriesLookup.TryGetValue(seriesId, out var seriesRows))
+                continue;
+
+            foreach (var series in seriesRows)
+            {
+                signatureBuilder
+                    .Append("series:")
+                    .Append(series.RowId)
+                    .Append(':')
+                    .Append(series.SubrowId)
+                    .Append(';');
+
+                var specialShop = series.SpecialShop.ValueNullable;
+                if (specialShop == null)
+                {
+                    signatureBuilder.Append("special:missing;");
+                    continue;
+                }
+
+                for (var rawIndex = 0; rawIndex < specialShop.Value.Item.Count; rawIndex++)
+                {
+                    var entry = specialShop.Value.Item[rawIndex];
+                    var hasItem = TryGetEntryItemId(entry, out var itemId);
+                    var itemName = string.Empty;
+                    if (hasItem && itemId > 0)
+                    {
+                        var item = itemSheet.GetRow(itemId);
+                        if (item.RowId != 0)
+                            itemName = item.Name.ExtractText();
+                    }
+
+                    var itemCost = GetCost(entry);
+                    var rawCurrencyId = GetCostItemId(entry);
+                    var normalizedCurrency = rawCurrencyId == 0
+                        ? new ScripCurrencyResolver.NormalizedCurrency(0, 0)
+                        : ScripCurrencyResolver.NormalizeCurrency(rawCurrencyId, ResolveSpecialCurrencyItemId);
+                    var currencyName = GetCurrencyName(itemSheet, normalizedCurrency.CurrencyItemId);
+                    var discipline = ScripCurrencyResolver.ResolveDiscipline(normalizedCurrency.SpecialId, currencyName);
+
+                    signatureBuilder
+                        .Append("entry:")
+                        .Append(rawIndex)
+                        .Append(':')
+                        .Append(hasItem ? itemId : 0)
+                        .Append(':')
+                        .Append(itemName)
+                        .Append(':')
+                        .Append(itemCost)
+                        .Append(':')
+                        .Append(rawCurrencyId)
+                        .Append(':')
+                        .Append(normalizedCurrency.CurrencyItemId)
+                        .Append(':')
+                        .Append(normalizedCurrency.SpecialId)
+                        .Append(':')
+                        .Append(currencyName)
+                        .Append(':')
+                        .Append((int)discipline)
+                        .Append(':')
+                        .Append(entry.PatchNumber)
+                        .Append(':')
+                        .Append(entry.Order)
+                        .Append(';');
+                }
+            }
+        }
+
+        return Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(signatureBuilder.ToString())));
     }
 
     public List<ScripShopItem> BuildCatalog()
@@ -27,15 +131,15 @@ public sealed unsafe class ScripShopCatalogBuilder
         var itemSheet = Svc.Data.GetExcelSheet<Item>();
 
         if (inclusionShopSheet is null)
-            throw new InvalidOperationException("无法读取 InclusionShop 数据表。");
+            throw new InvalidOperationException("Failed to read the InclusionShop sheet.");
         if (inclusionShopSeriesSheet is null)
-            throw new InvalidOperationException("无法读取 InclusionShopSeries 数据表。");
+            throw new InvalidOperationException("Failed to read the InclusionShopSeries sheet.");
         if (itemSheet is null)
-            throw new InvalidOperationException("无法读取 Item 数据表。");
+            throw new InvalidOperationException("Failed to read the Item sheet.");
 
         var shop = inclusionShopSheet.GetRow(ScripInclusionShopId);
         if (shop.RowId == 0)
-            throw new InvalidOperationException($"无法找到 InclusionShop 行 {ScripInclusionShopId}。");
+            throw new InvalidOperationException($"Failed to find InclusionShop row {ScripInclusionShopId}.");
 
         var seriesLookup = inclusionShopSeriesSheet
             .SelectMany(group => group)

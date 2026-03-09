@@ -40,7 +40,6 @@ public sealed unsafe class ReturnToCraftPointJob : IAutomationJob
     private bool _observedTransition;
 
     public string Id => "return-to-craft-point";
-    public string StatusText { get; private set; } = "空闲";
     public JobStatus Status { get; private set; } = JobStatus.Idle;
 
     public bool CanStart()
@@ -54,13 +53,12 @@ public sealed unsafe class ReturnToCraftPointJob : IAutomationJob
         var configuredPoint = context.Config.DefaultCraftReturnPoint ?? HousingReturnPoint.CreateInn();
         if (!HousingReturnPointService.TryResolveConfiguredPoint(configuredPoint, out var resolvedPoint))
         {
-            Fail("返回点已失效，请重新选择。");
+            Fail("Return point is no longer valid. Please choose it again.");
             return;
         }
 
         _target = resolvedPoint;
         Status = JobStatus.Running;
-        StatusText = $"正在返回 {_target.DisplayName}";
         TransitionTo(ReturnState.Teleporting);
     }
 
@@ -98,13 +96,12 @@ public sealed unsafe class ReturnToCraftPointJob : IAutomationJob
                     Complete();
                     break;
                 case ReturnState.Failed:
-                    Fail(StatusText);
                     break;
             }
         }
         catch (Exception ex)
         {
-            Fail($"返回制作点异常：{ex.Message}");
+            Fail($"Return-to-craft-point failed: {ex.Message}");
         }
     }
 
@@ -113,7 +110,6 @@ public sealed unsafe class ReturnToCraftPointJob : IAutomationJob
         _context?.Navigation.Stop();
         ResetRunState();
         Status = JobStatus.Idle;
-        StatusText = "已停止";
     }
 
     private void ResetRunState()
@@ -128,7 +124,6 @@ public sealed unsafe class ReturnToCraftPointJob : IAutomationJob
 
     private void TeleportToReturnPoint()
     {
-        StatusText = $"正在传送到 {_target!.DisplayName}";
         if ((DateTime.UtcNow - _lastAction) < _actionDelay)
             return;
 
@@ -136,7 +131,7 @@ public sealed unsafe class ReturnToCraftPointJob : IAutomationJob
         {
             if (!LifestreamIPC.IsAvailable())
             {
-                Fail("Lifestream 未就绪，无法返回旅馆。");
+                Fail("Lifestream is not available, so the inn shortcut cannot be used.");
                 return;
             }
 
@@ -149,7 +144,7 @@ public sealed unsafe class ReturnToCraftPointJob : IAutomationJob
 
         if (!HousingReturnPointService.TeleportTo(_target))
         {
-            Fail("无法传送到返回点。");
+            Fail("Could not teleport to the return point.");
             return;
         }
 
@@ -160,7 +155,6 @@ public sealed unsafe class ReturnToCraftPointJob : IAutomationJob
 
     private void WaitForTeleport()
     {
-        StatusText = "正在等待住宅传送完成";
         if (IsTransitioning())
         {
             _observedTransition = true;
@@ -175,12 +169,11 @@ public sealed unsafe class ReturnToCraftPointJob : IAutomationJob
         }
 
         if ((DateTime.UtcNow - _stateEnteredAt) > TimeSpan.FromSeconds(15))
-            Fail("等待住宅传送超时。");
+            Fail("Timed out while waiting for residential teleport.");
     }
 
     private void WaitForInn()
     {
-        StatusText = "正在等待传送到旅馆";
 
         if (HousingReturnPointService.IsInsideInn())
         {
@@ -195,7 +188,7 @@ public sealed unsafe class ReturnToCraftPointJob : IAutomationJob
         }
 
         if ((DateTime.UtcNow - _stateEnteredAt) > _innTeleportTimeout)
-            Fail("等待传送到旅馆超时。");
+            Fail("Timed out while waiting for inn teleport.");
     }
 
     private void MoveToEntrance()
@@ -211,15 +204,13 @@ public sealed unsafe class ReturnToCraftPointJob : IAutomationJob
 
         if (!HousingReturnPointService.TryGetHousingEntrance(localPlayer.Position, _target!.IsApartment, out var entrance) || entrance == null)
         {
-            StatusText = "正在查找房屋入口";
             if ((DateTime.UtcNow - _stateEnteredAt) > TimeSpan.FromSeconds(15))
-                Fail("未找到房屋入口。");
+                Fail("House entrance not found.");
             return;
         }
 
         if (!_navigationStarted)
         {
-            StatusText = "正在前往房屋入口";
             _context!.Navigation.NavigateTo(new NavigationTarget(
                 entrance.Position,
                 0,
@@ -238,7 +229,7 @@ public sealed unsafe class ReturnToCraftPointJob : IAutomationJob
         }
 
         if (_context.Navigation.State == NavigationService.NavigationState.Failed)
-            Fail(_context.Navigation.ErrorMessage ?? "无法到达房屋入口。");
+            Fail(_context.Navigation.ErrorMessage ?? "Could not reach the house entrance.");
     }
 
     private void InteractEntrance()
@@ -261,7 +252,6 @@ public sealed unsafe class ReturnToCraftPointJob : IAutomationJob
             return;
         }
 
-        StatusText = "正在交互房屋入口";
         if (_context!.NpcInteraction.TryInteract(entrance, 4f))
         {
             _lastAction = DateTime.UtcNow;
@@ -270,7 +260,7 @@ public sealed unsafe class ReturnToCraftPointJob : IAutomationJob
         }
 
         if ((DateTime.UtcNow - _stateEnteredAt) > TimeSpan.FromSeconds(10))
-            Fail("无法与房屋入口交互。");
+            Fail("Could not interact with the house entrance.");
     }
 
     private void ConfirmEntry()
@@ -281,7 +271,6 @@ public sealed unsafe class ReturnToCraftPointJob : IAutomationJob
             return;
         }
 
-        StatusText = _target!.IsApartment ? "正在选择进入房间" : "正在确认进入房屋";
 
         if (_target.IsApartment)
         {
@@ -319,7 +308,6 @@ public sealed unsafe class ReturnToCraftPointJob : IAutomationJob
 
     private void WaitForIndoor()
     {
-        StatusText = "正在等待进入房屋";
         if (HousingReturnPointService.IsInsideHouse())
         {
             TransitionTo(ReturnState.Completed);
@@ -327,16 +315,13 @@ public sealed unsafe class ReturnToCraftPointJob : IAutomationJob
         }
 
         if ((DateTime.UtcNow - _stateEnteredAt) > TimeSpan.FromSeconds(20))
-            Fail("等待进入房屋超时。");
+            Fail("Timed out while waiting to enter the house.");
     }
 
     private void Complete()
     {
         _context?.Navigation.Stop();
         Status = JobStatus.Completed;
-        StatusText = _target?.IsInn == true
-            ? "已返回旅馆"
-            : "已返回制作点并进入房屋";
         _state = ReturnState.Idle;
     }
 
@@ -344,7 +329,7 @@ public sealed unsafe class ReturnToCraftPointJob : IAutomationJob
     {
         _context?.Navigation.Stop();
         Status = JobStatus.Failed;
-        StatusText = message;
+        Svc.Log.Error($"[Starloom] ReturnToCraftPointJob failed: {message}");
         _state = ReturnState.Failed;
     }
 
