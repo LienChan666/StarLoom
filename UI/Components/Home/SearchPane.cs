@@ -105,7 +105,7 @@ internal sealed class SearchPane
             Item = item,
             Quantity = 1,
         });
-        _plugin.Config.Save();
+        _plugin.SaveConfig();
     }
 
     private List<ScripShopItem> GetVisibleItems()

@@ -37,7 +37,7 @@ internal sealed class ShopSettingsCard
                 if (ImGui.Selectable(shop.Name, isSelected))
                 {
                     _plugin.Config.PreferredCollectableShop = shop;
-                    _plugin.Config.Save();
+                    _plugin.SaveConfig();
                     currentShop = shop;
                     preview = currentShop.Name;
                 }

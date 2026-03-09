@@ -71,7 +71,7 @@ internal sealed class SelectedItemsPane
                     item.Quantity = Math.Max(1, quantity);
 
                 if (ImGui.IsItemDeactivatedAfterEdit() && item.Quantity != previousQuantity)
-                    _plugin.Config.Save();
+                    _plugin.SaveConfig();
 
                 ImGui.TableSetColumnIndex(4);
                 ImGui.BeginDisabled(index == 0);
@@ -98,19 +98,19 @@ internal sealed class SelectedItemsPane
         if (removeIndex.HasValue)
         {
             _plugin.Config.ScripShopItems.RemoveAt(removeIndex.Value);
-            _plugin.Config.Save();
+            _plugin.SaveConfig();
         }
 
         if (moveUpIndex.HasValue)
         {
             SwapItems(moveUpIndex.Value, moveUpIndex.Value - 1);
-            _plugin.Config.Save();
+            _plugin.SaveConfig();
         }
 
         if (moveDownIndex.HasValue)
         {
             SwapItems(moveDownIndex.Value, moveDownIndex.Value + 1);
-            _plugin.Config.Save();
+            _plugin.SaveConfig();
         }
     }
 

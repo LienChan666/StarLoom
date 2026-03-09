@@ -51,7 +51,7 @@ internal sealed class HomeControlPane
             _plugin.Config.ArtisanListId = Math.Max(0, artisanListId);
 
         if (ImGui.IsItemDeactivatedAfterEdit() && _plugin.Config.ArtisanListId != previousArtisanListId)
-            _plugin.Config.Save();
+            _plugin.SaveConfig();
 
         GamePanelStyle.DrawHint("清单 ID 修改后会立即保存。若流程异常，优先检查这里是否指向你实际使用的 Artisan 清单。");
     }

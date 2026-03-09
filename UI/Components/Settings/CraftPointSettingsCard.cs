@@ -69,7 +69,7 @@ internal sealed class CraftPointSettingsCard
                 if (ImGui.Selectable(point.DisplayName, isSelected))
                 {
                     _plugin.Config.DefaultCraftReturnPoint = ClonePoint(point);
-                    _plugin.Config.Save();
+                    _plugin.SaveConfig();
                 }
 
                 if (isSelected)

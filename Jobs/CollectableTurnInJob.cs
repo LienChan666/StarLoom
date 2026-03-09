@@ -35,6 +35,7 @@ public sealed unsafe class CollectableTurnInJob : IAutomationJob
     private readonly TimeSpan _actionDelay = TimeSpan.FromMilliseconds(500);
     private readonly TimeSpan _shopWindowTimeout = TimeSpan.FromSeconds(15);
     private readonly TimeSpan _submitTimeout = TimeSpan.FromSeconds(5);
+    private readonly StateMachine<TurnInState> _stateMachine;
 
     private JobContext? _context;
     private TurnInState _state = TurnInState.Idle;
@@ -51,6 +52,22 @@ public sealed unsafe class CollectableTurnInJob : IAutomationJob
     public string StatusText { get; private set; } = "空闲";
     public JobStatus Status { get; private set; } = JobStatus.Idle;
     public bool OvercapDetected { get; private set; }
+
+    public CollectableTurnInJob()
+    {
+        _stateMachine = new StateMachine<TurnInState>(TurnInState.Idle, state => _state = state);
+        _stateMachine.Configure(TurnInState.CheckingInventory, CheckInventory);
+        _stateMachine.Configure(TurnInState.MovingToShop, MoveToShop);
+        _stateMachine.Configure(TurnInState.WaitingForShopWindow, WaitForShopWindow);
+        _stateMachine.Configure(TurnInState.SelectingJob, SelectJob);
+        _stateMachine.Configure(TurnInState.SelectingItem, SelectItem);
+        _stateMachine.Configure(TurnInState.SubmittingItem, SubmitItem);
+        _stateMachine.Configure(TurnInState.CheckingOvercapDialog, CheckOvercapDialog);
+        _stateMachine.Configure(TurnInState.WaitingForSubmit, WaitForSubmit);
+        _stateMachine.Configure(TurnInState.CheckingForMore, CheckForMore);
+        _stateMachine.Configure(TurnInState.Completed, Complete);
+        _stateMachine.Configure(TurnInState.Failed, () => Fail(StatusText));
+    }
 
     public bool CanStart() => InventoryService.HasCollectableTurnIns();
 
@@ -79,42 +96,7 @@ public sealed unsafe class CollectableTurnInJob : IAutomationJob
 
         try
         {
-            switch (_state)
-            {
-                case TurnInState.CheckingInventory:
-                    CheckInventory();
-                    break;
-                case TurnInState.MovingToShop:
-                    MoveToShop();
-                    break;
-                case TurnInState.WaitingForShopWindow:
-                    WaitForShopWindow();
-                    break;
-                case TurnInState.SelectingJob:
-                    SelectJob();
-                    break;
-                case TurnInState.SelectingItem:
-                    SelectItem();
-                    break;
-                case TurnInState.SubmittingItem:
-                    SubmitItem();
-                    break;
-                case TurnInState.CheckingOvercapDialog:
-                    CheckOvercapDialog();
-                    break;
-                case TurnInState.WaitingForSubmit:
-                    WaitForSubmit();
-                    break;
-                case TurnInState.CheckingForMore:
-                    CheckForMore();
-                    break;
-                case TurnInState.Completed:
-                    Complete();
-                    break;
-                case TurnInState.Failed:
-                    Fail(StatusText);
-                    break;
-            }
+            _stateMachine.Update();
         }
         catch (Exception ex)
         {
@@ -363,8 +345,8 @@ public sealed unsafe class CollectableTurnInJob : IAutomationJob
 
     private void TransitionTo(TurnInState state)
     {
-        _state = state;
-        _stateEnteredAt = DateTime.UtcNow;
+        _stateMachine.TransitionTo(state);
+        _stateEnteredAt = _stateMachine.StateEnteredAt;
     }
 
     private CollectableShop GetPreferredShop()

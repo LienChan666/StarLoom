@@ -1,5 +1,4 @@
 using Dalamud.Configuration;
-using ECommons.DalamudServices;
 using Starloom.Data;
 using System;
 using System.Collections.Generic;
@@ -39,6 +38,4 @@ public class Configuration : IPluginConfiguration
 
         return updated;
     }
-
-    public void Save() => Svc.PluginInterface.SavePluginConfig(this);
 }

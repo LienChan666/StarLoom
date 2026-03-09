@@ -1,6 +1,7 @@
-﻿using ECommons.DalamudServices;
+using ECommons.DalamudServices;
 using FFXIVClientStructs.FFXIV.Client.Game;
 using Lumina.Excel.Sheets;
+using Starloom.Services.Interfaces;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -137,5 +138,32 @@ public static unsafe class InventoryService
     }
 }
 
+public sealed class InventoryServiceAdapter : IInventoryService
+{
+    public void InvalidateTransientCaches()
+        => InventoryService.InvalidateTransientCaches();
 
+    public List<InventoryItem> GetCurrentInventoryItems()
+        => InventoryService.GetCurrentInventoryItems();
 
+    public bool IsCollectableTurnInItem(uint itemId)
+        => InventoryService.IsCollectableTurnInItem(itemId);
+
+    public int GetInventoryItemCount(uint itemId)
+        => InventoryService.GetInventoryItemCount(itemId);
+
+    public int GetCollectableInventoryItemCount(uint itemId)
+        => InventoryService.GetCollectableInventoryItemCount(itemId);
+
+    public int GetCurrencyItemCount(uint itemId)
+        => InventoryService.GetCurrencyItemCount(itemId);
+
+    public int GetFreeSlotCount()
+        => InventoryService.GetFreeSlotCount();
+
+    public bool HasCollectableTurnIns()
+        => InventoryService.HasCollectableTurnIns();
+
+    public Item? GetItemRow(uint itemId)
+        => InventoryService.GetItemRow(itemId);
+}

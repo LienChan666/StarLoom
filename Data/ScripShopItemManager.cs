@@ -20,6 +20,7 @@ public sealed class ScripShopItemManager
     };
 
     private readonly Configuration _config;
+    private readonly ConfigurationStore _configurationStore;
     private readonly ScripShopCatalogBuilder _catalogBuilder = new();
     private readonly SemaphoreSlim _syncLock = new(1, 1);
 
@@ -29,9 +30,10 @@ public sealed class ScripShopItemManager
     public string StatusMessage { get; private set; } = "工票物品索引尚未加载。";
     public string CacheFilePath => Path.Combine(Svc.PluginInterface.ConfigDirectory.FullName, CacheFileName);
 
-    public ScripShopItemManager(Configuration config)
+    public ScripShopItemManager(Configuration config, ConfigurationStore configurationStore)
     {
         _config = config;
+        _configurationStore = configurationStore;
         RequestLoad();
     }
 
@@ -110,36 +112,47 @@ public sealed class ScripShopItemManager
             return generatedItems;
         }
 
-        List<ScripShopItem> loadedItems;
+        ScripShopCatalogCacheDocument cacheDocument;
         try
         {
-            loadedItems = await ReadCacheAsync();
+            cacheDocument = await ReadCacheAsync();
         }
         catch (Exception ex)
         {
             Svc.Log.Warning($"[ScripShopItemManager] Failed to parse cache file, rebuilding it: {ex.Message}");
-            loadedItems = [];
+            cacheDocument = new ScripShopCatalogCacheDocument();
         }
 
-        if (loadedItems.Count > 0)
-            return loadedItems;
+        if (IsCacheValid(cacheDocument))
+            return cacheDocument.Items;
 
-        StatusMessage = "外部工票物品列表为空，正在重新构建...";
+        StatusMessage = "工票物品缓存已过期，正在重新构建...";
         var rebuiltItems = _catalogBuilder.BuildCatalog();
         await WriteCacheAsync(rebuiltItems);
         return rebuiltItems;
     }
 
-    private async Task<List<ScripShopItem>> ReadCacheAsync()
+    private bool IsCacheValid(ScripShopCatalogCacheDocument cacheDocument)
+        => cacheDocument.Items.Count > 0
+           && string.Equals(cacheDocument.CatalogVersion, _catalogBuilder.GetCatalogVersion(), StringComparison.Ordinal);
+
+    private async Task<ScripShopCatalogCacheDocument> ReadCacheAsync()
     {
         await using var stream = File.OpenRead(CacheFilePath);
-        return await JsonSerializer.DeserializeAsync<List<ScripShopItem>>(stream) ?? [];
+        return await JsonSerializer.DeserializeAsync<ScripShopCatalogCacheDocument>(stream) ?? new ScripShopCatalogCacheDocument();
     }
 
     private async Task WriteCacheAsync(List<ScripShopItem> items)
     {
         Directory.CreateDirectory(Path.GetDirectoryName(CacheFilePath) ?? Svc.PluginInterface.ConfigDirectory.FullName);
-        await File.WriteAllTextAsync(CacheFilePath, JsonSerializer.Serialize(items, JsonOptions));
+        var cacheDocument = new ScripShopCatalogCacheDocument
+        {
+            CatalogVersion = _catalogBuilder.GetCatalogVersion(),
+            GeneratedAtUtc = DateTime.UtcNow,
+            Items = items,
+        };
+
+        await File.WriteAllTextAsync(CacheFilePath, JsonSerializer.Serialize(cacheDocument, JsonOptions));
     }
 
     private void SyncConfiguredItems(List<ScripShopItem> latestItems)
@@ -163,7 +176,7 @@ public sealed class ScripShopItemManager
         }
 
         if (changed)
-            _config.Save();
+            _configurationStore.Save();
     }
 
     private static bool AreEquivalent(ScripShopItem left, ScripShopItem right)

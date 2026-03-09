@@ -13,6 +13,13 @@ public sealed unsafe class ScripShopCatalogBuilder
 {
     private const uint ScripInclusionShopId = 3801094;
 
+    public string GetCatalogVersion()
+    {
+        var inclusionShopCount = Svc.Data.GetExcelSheet<InclusionShop>()?.LongCount() ?? 0;
+        var inclusionShopSeriesCount = Svc.Data.GetSubrowExcelSheet<InclusionShopSeries>()?.LongCount() ?? 0;
+        return $"{ScripInclusionShopId}:{inclusionShopCount}:{inclusionShopSeriesCount}";
+    }
+
     public List<ScripShopItem> BuildCatalog()
     {
         var inclusionShopSheet = Svc.Data.GetExcelSheet<InclusionShop>();

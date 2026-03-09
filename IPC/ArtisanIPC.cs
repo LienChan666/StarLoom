@@ -1,28 +1,43 @@
 using ECommons.Automation;
-using ECommons.DalamudServices;
 using Starloom.Core;
 using System;
 
 namespace Starloom.IPC;
 
-public sealed class ArtisanIPC
+public sealed class ArtisanIPC : IArtisanIpc
 {
+    private readonly IpcCallRunner _ipcCallRunner = new(nameof(ArtisanIPC), "Artisan");
+
     public bool IsAvailable()
-        => ExternalPluginDetector.IsAvailable("Artisan");
+        => _ipcCallRunner.IsAvailable();
 
-    public bool IsListRunning() => InvokeFunc<bool>("Artisan.IsListRunning");
-    public bool IsListPaused() => InvokeFunc<bool>("Artisan.IsListPaused");
-    public bool IsBusy() => InvokeFunc<bool>("Artisan.IsBusy");
-    public bool GetEnduranceStatus() => InvokeFunc<bool>("Artisan.GetEnduranceStatus");
-    public bool GetStopRequest() => InvokeFunc<bool>("Artisan.GetStopRequest");
+    public bool IsListRunning()
+        => _ipcCallRunner.InvokeFunc("Artisan.IsListRunning", false);
 
-    public void SetListPause(bool paused) => InvokeAction("Artisan.SetListPause", paused);
-    public void SetStopRequest(bool stop) => InvokeAction("Artisan.SetStopRequest", stop);
-    public void SetEnduranceStatus(bool enabled) => InvokeAction("Artisan.SetEnduranceStatus", enabled);
+    public bool IsListPaused()
+        => _ipcCallRunner.InvokeFunc("Artisan.IsListPaused", false);
+
+    public bool IsBusy()
+        => _ipcCallRunner.InvokeFunc("Artisan.IsBusy", false);
+
+    public bool GetEnduranceStatus()
+        => _ipcCallRunner.InvokeFunc("Artisan.GetEnduranceStatus", false);
+
+    public bool GetStopRequest()
+        => _ipcCallRunner.InvokeFunc("Artisan.GetStopRequest", false);
+
+    public void SetListPause(bool paused)
+        => _ipcCallRunner.InvokeAction("Artisan.SetListPause", paused, requireAvailable: true);
+
+    public void SetStopRequest(bool stop)
+        => _ipcCallRunner.InvokeAction("Artisan.SetStopRequest", stop, requireAvailable: true);
+
+    public void SetEnduranceStatus(bool enabled)
+        => _ipcCallRunner.InvokeAction("Artisan.SetEnduranceStatus", enabled, requireAvailable: true);
 
     public void StartListById(int listId)
     {
-        EnsureAvailable();
+        _ipcCallRunner.EnsureAvailable();
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(listId);
         Chat.SendMessage($"/artisan lists {listId} start");
     }
@@ -34,22 +49,4 @@ public sealed class ArtisanIPC
             IsListPaused(),
             GetStopRequest(),
             GetEnduranceStatus());
-
-    private T InvokeFunc<T>(string name)
-    {
-        EnsureAvailable();
-        return Svc.PluginInterface.GetIpcSubscriber<T>(name).InvokeFunc();
-    }
-
-    private void InvokeAction<T>(string name, T arg)
-    {
-        EnsureAvailable();
-        Svc.PluginInterface.GetIpcSubscriber<T, object>(name).InvokeAction(arg);
-    }
-
-    private void EnsureAvailable()
-    {
-        if (!IsAvailable())
-            throw new InvalidOperationException("Artisan IPC is unavailable.");
-    }
 }

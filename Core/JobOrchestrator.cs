@@ -21,7 +21,7 @@ public sealed class JobOrchestrator : IDisposable
     private static readonly TimeSpan ArtisanIdleTimeout = TimeSpan.FromSeconds(15);
     private static readonly TimeSpan LocalActionReadyStableDuration = TimeSpan.FromMilliseconds(500);
 
-    private readonly ArtisanIPC _artisan;
+    private readonly IArtisanIpc _artisan;
     private readonly JobContext _context;
     private readonly Queue<IAutomationJob> _pendingJobs = new();
 
@@ -33,7 +33,7 @@ public sealed class JobOrchestrator : IDisposable
     public string? ErrorMessage { get; private set; }
     public bool IsRunning => State is OrchestratorState.WaitingForArtisanPause or OrchestratorState.WaitingForArtisanIdle or OrchestratorState.RunningJobs;
 
-    public JobOrchestrator(ArtisanIPC artisan, JobContext context)
+    public JobOrchestrator(IArtisanIpc artisan, JobContext context)
     {
         _artisan = artisan;
         _context = context;
