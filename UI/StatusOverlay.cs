@@ -1,5 +1,6 @@
-using Dalamud.Bindings.ImGui;
+﻿using Dalamud.Bindings.ImGui;
 using Dalamud.Interface.Windowing;
+using StarLoom.UI;
 using StarLoom.UI.Components.Shared;
 using System.Numerics;
 
@@ -7,12 +8,12 @@ namespace StarLoom.UI;
 
 public sealed class StatusOverlay : Window
 {
-    private readonly Plugin _plugin;
+    private readonly IPluginUiFacade _ui;
 
-    public StatusOverlay(Plugin plugin)
+    public StatusOverlay(IPluginUiFacade ui)
         : base("Starloom##StarloomStatusOverlay")
     {
-        _plugin = plugin;
+        _ui = ui;
         Flags = ImGuiWindowFlags.AlwaysAutoResize | ImGuiWindowFlags.NoCollapse;
     }
 
@@ -35,17 +36,18 @@ public sealed class StatusOverlay : Window
 
     public override void Draw()
     {
-        var statusColor = _plugin.IsAutomationBusy ? GamePanelStyle.Gold : GamePanelStyle.Success;
+        var statusColor = _ui.IsAutomationBusy ? GamePanelStyle.Gold : GamePanelStyle.Success;
         GamePanelStyle.DrawStatusDot(statusColor);
         ImGui.PushStyleColor(ImGuiCol.Text, GamePanelStyle.TextPrimary);
-        ImGui.Text(_plugin.GetText("overlay.total_state", _plugin.GetOrchestratorStateText()));
+        ImGui.Text(_ui.GetText("overlay.total_state", _ui.GetOrchestratorStateText()));
         ImGui.PopStyleColor();
 
         GamePanelStyle.DrawGradientSeparator();
 
-        ImGui.BeginDisabled(!_plugin.IsAutomationBusy);
-        if (GamePanelStyle.DrawActionButton("overlay.stop", _plugin.GetText("common.stop"), GamePanelStyle.Danger, 120f, _plugin.IsAutomationBusy, "■"))
-            _plugin.StopAutomation();
+        ImGui.BeginDisabled(!_ui.IsAutomationBusy);
+        if (GamePanelStyle.DrawActionButton("overlay.stop", _ui.GetText("common.stop"), GamePanelStyle.Danger, 120f, _ui.IsAutomationBusy, "■"))
+            _ui.StopAutomation();
         ImGui.EndDisabled();
     }
 }
+

@@ -48,9 +48,9 @@ public sealed class CollectablePurchaseFlowSourceTests
         var source = File.ReadAllText(Path.Combine(RepoRoot, "Workflows", "WorkflowBuilder.cs"));
 
         Assert.Contains("ShouldRunConfiguredPurchaseWorkflow()", source);
-        Assert.Contains("_config.BuyAfterEachTurnIn && GetPendingPurchaseItems().Count > 0", source);
-        Assert.Contains("Where(item => item.Item != null && item.Quantity > 0)", source);
-        Assert.Contains("Where(item => _inventory.GetInventoryItemCount(item.Item!.ItemId) < item.Quantity)", source);
+        Assert.Contains("PendingPurchaseResolver", source);
+        Assert.Contains("_config.BuyAfterEachTurnIn && _pendingPurchaseResolver.Resolve().Count > 0", source);
+        Assert.DoesNotContain("GetPendingPurchaseItems()", source);
     }
 
     [Fact]
@@ -61,9 +61,8 @@ public sealed class CollectablePurchaseFlowSourceTests
         Assert.Contains("The purchase list is empty.", source);
         Assert.Contains("The purchase list is empty or has no valid target quantities.", source);
         Assert.Contains("All configured purchase items already reached their target quantities.", source);
-        Assert.Contains("_inventory.GetInventoryItemCount", source);
-        Assert.Contains("item.Quantity > 0", source);
-        Assert.Contains("item.Item != null", source);
+        Assert.Contains("PendingPurchaseResolver", source);
+        Assert.Contains("_pendingPurchaseResolver.Resolve()", source);
     }
 
     [Fact]
@@ -154,7 +153,7 @@ public sealed class CollectablePurchaseFlowSourceTests
         Assert.Contains("_purchaseStartedAt", source);
         Assert.Contains("_currentTargetItemId", source);
         Assert.Contains("_inventoryCountBeforePurchase", source);
-        Assert.Contains("InventoryService.GetInventoryItemCount(_currentTargetItemId)", source);
+        Assert.Contains("Context!.Inventory.GetInventoryItemCount(_currentTargetItemId)", source);
         Assert.Contains("WaitForPurchaseComplete", source);
         Assert.DoesNotContain("var next = _purchaseQueue.Dequeue();", source);
     }
@@ -165,7 +164,7 @@ public sealed class CollectablePurchaseFlowSourceTests
         var source = File.ReadAllText(Path.Combine(RepoRoot, "Services", "ManagedArtisanSession.cs"));
 
         Assert.Contains("_orchestrator.State == OrchestratorState.Completed", source);
-        Assert.Contains("InventoryService.HasCollectableTurnIns()", source);
+        Assert.Contains("_inventory.HasCollectableTurnIns()", source);
         Assert.Contains("_orchestrator.TryStart(_jobFactory())", source);
         Assert.Contains("IsBelowFreeSlotThreshold()", source);
     }
@@ -175,7 +174,7 @@ public sealed class CollectablePurchaseFlowSourceTests
     {
         var source = File.ReadAllText(Path.Combine(RepoRoot, "Jobs", "ReturnToCraftPointJob.cs"));
 
-        Assert.Contains("public bool CanStart()", source);
+        Assert.Contains("public override bool CanStart()", source);
         Assert.Contains("=> true;", source);
         Assert.DoesNotContain("Plugin.P.Config.FreeSlotThreshold", source);
         Assert.DoesNotContain("InventoryService.HasCollectableTurnIns()", source);
@@ -205,8 +204,8 @@ public sealed class CollectablePurchaseFlowSourceTests
     {
         var source = File.ReadAllText(Path.Combine(RepoRoot, "Jobs", "ScripPurchaseJob.cs"));
 
-        Assert.Contains("currencyItemId", source);
-        Assert.Contains("InventoryService.GetCurrencyItemCount(next.currencyItemId)", source);
+        Assert.Contains("CurrencyItemId", source);
+        Assert.Contains("Context!.Inventory.GetCurrencyItemCount(next.CurrencyItemId)", source);
         Assert.DoesNotContain("_shopAddon.GetScripCount()", source);
     }
 
@@ -216,8 +215,8 @@ public sealed class CollectablePurchaseFlowSourceTests
         var source = File.ReadAllText(Path.Combine(RepoRoot, "Jobs", "CollectableTurnInJob.cs"));
 
         Assert.Contains("Timed out while waiting for the collectable window.", source);
-        Assert.Contains("_stateEnteredAt", source);
-        Assert.Contains("if (_context!.NpcInteraction.TryInteract(GetPreferredShop().NpcId))", source);
+        Assert.Contains("TransitionedAt", source);
+        Assert.Contains("UpdateShopWindow(", source);
     }
 
     [Fact]
@@ -237,8 +236,8 @@ public sealed class CollectablePurchaseFlowSourceTests
         var source = File.ReadAllText(Path.Combine(RepoRoot, "Jobs", "ScripPurchaseJob.cs"));
 
         Assert.Contains("Timed out while waiting for the scrip shop window.", source);
-        Assert.Contains("_stateEnteredAt", source);
-        Assert.Contains("if (_context!.NpcInteraction.TryInteract(GetPreferredShop().ScripShopNpcId))", source);
+        Assert.Contains("TransitionedAt", source);
+        Assert.Contains("UpdateShopWindow(", source);
     }
 
     [Fact]

@@ -10,12 +10,12 @@ namespace StarLoom.Workflows;
 public sealed class WorkflowBuilder
 {
     private readonly Configuration _config;
-    private readonly IInventoryService _inventory;
+    private readonly PendingPurchaseResolver _pendingPurchaseResolver;
 
     public WorkflowBuilder(Configuration config, IInventoryService inventory)
     {
         _config = config;
-        _inventory = inventory;
+        _pendingPurchaseResolver = new PendingPurchaseResolver(config, inventory);
     }
 
     public IReadOnlyList<IAutomationJob> CreateConfiguredWorkflow()
@@ -45,13 +45,7 @@ public sealed class WorkflowBuilder
     }
 
     public bool ShouldRunConfiguredPurchaseWorkflow()
-        => _config.BuyAfterEachTurnIn && GetPendingPurchaseItems().Count > 0;
-
-    public List<ItemToPurchase> GetPendingPurchaseItems()
-        => _config.ScripShopItems
-            .Where(item => item.Item != null && item.Quantity > 0)
-            .Where(item => _inventory.GetInventoryItemCount(item.Item!.ItemId) < item.Quantity)
-            .ToList();
+        => _config.BuyAfterEachTurnIn && _pendingPurchaseResolver.Resolve().Count > 0;
 
     private IAutomationJob BuildPostPurchaseActionJob()
         => _config.PostPurchaseAction switch

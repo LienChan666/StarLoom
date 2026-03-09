@@ -1,10 +1,8 @@
-using StarLoom.Services;
-
 namespace StarLoom.Services.Interfaces;
 
 public interface INavigationService
 {
-    NavigationService.NavigationState State { get; }
+    NavigationStatus State { get; }
     string? ErrorMessage { get; }
 
     void NavigateTo(NavigationTarget target);

@@ -1,4 +1,5 @@
-using Dalamud.Bindings.ImGui;
+﻿using Dalamud.Bindings.ImGui;
+using StarLoom.UI;
 using StarLoom.UI.Components.Shared;
 using System.Numerics;
 
@@ -6,11 +7,11 @@ namespace StarLoom.UI.Components.Home;
 
 internal sealed class HomeHeaderPanel
 {
-    private readonly Plugin _plugin;
+    private readonly IPluginUiFacade _ui;
 
-    public HomeHeaderPanel(Plugin plugin)
+    public HomeHeaderPanel(IPluginUiFacade ui)
     {
-        _plugin = plugin;
+        _ui = ui;
     }
 
     public void Draw(Vector2 size)
@@ -35,19 +36,20 @@ internal sealed class HomeHeaderPanel
     {
         ImGui.SetWindowFontScale(1.3f);
         ImGui.PushStyleColor(ImGuiCol.Text, GamePanelStyle.Accent);
-        ImGui.TextUnformatted(_plugin.GetText("home.header.title"));
+        ImGui.TextUnformatted(_ui.GetText("home.header.title"));
         ImGui.PopStyleColor();
         ImGui.SetWindowFontScale(1.0f);
 
-        ImGui.TextUnformatted(_plugin.GetText("home.header.subtitle"));
-        GamePanelStyle.DrawHint(_plugin.GetText("home.header.hint"));
+        ImGui.TextUnformatted(_ui.GetText("home.header.subtitle"));
+        GamePanelStyle.DrawHint(_ui.GetText("home.header.hint"));
     }
 
     private void DrawBadges()
     {
-        var stateColor = _plugin.IsAutomationBusy ? GamePanelStyle.Gold : GamePanelStyle.Success;
-        GamePanelStyle.DrawPillBadge(_plugin.GetText("home.header.badge.total_state", _plugin.GetOrchestratorStateText()), stateColor);
+        var stateColor = _ui.IsAutomationBusy ? GamePanelStyle.Gold : GamePanelStyle.Success;
+        GamePanelStyle.DrawPillBadge(_ui.GetText("home.header.badge.total_state", _ui.GetOrchestratorStateText()), stateColor);
         ImGui.SameLine(0f, GamePanelStyle.Spacing.Sm);
-        GamePanelStyle.DrawPillBadge(_plugin.GetText("home.header.badge.current_list", _plugin.Config.ArtisanListId), GamePanelStyle.AccentSoft);
+        GamePanelStyle.DrawPillBadge(_ui.GetText("home.header.badge.current_list", _ui.Config.ArtisanListId), GamePanelStyle.AccentSoft);
     }
 }
+

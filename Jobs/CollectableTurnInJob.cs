@@ -6,6 +6,7 @@ using StarLoom.Addons;
 using StarLoom.Core;
 using StarLoom.Data;
 using StarLoom.Services;
+using StarLoom.Services.Interfaces;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -13,7 +14,7 @@ using static ECommons.GenericHelpers;
 
 namespace StarLoom.Jobs;
 
-public sealed unsafe class CollectableTurnInJob : IAutomationJob
+public sealed unsafe class CollectableTurnInJob : ShopJobBase
 {
     private enum TurnInState
     {
@@ -38,19 +39,14 @@ public sealed unsafe class CollectableTurnInJob : IAutomationJob
     private readonly TimeSpan _submitTimeout = TimeSpan.FromSeconds(5);
     private readonly StateMachine<TurnInState> _stateMachine;
 
-    private JobContext? _context;
     private TurnInState _state = TurnInState.Idle;
     private uint _currentItemId;
     private int _currentJobId = -1;
-    private DateTime _lastAction = DateTime.MinValue;
-    private DateTime _stateEnteredAt = DateTime.MinValue;
     private DateTime _overcapCheckStartedAt = DateTime.MinValue;
     private DateTime _submitStartedAt = DateTime.MinValue;
-    private bool _navigationStarted;
     private int _inventoryCountBeforeSubmit;
 
-    public string Id => "collectable-turn-in";
-    public JobStatus Status { get; private set; } = JobStatus.Idle;
+    public override string Id => "collectable-turn-in";
     public bool OvercapDetected { get; private set; }
 
     public CollectableTurnInJob()
@@ -68,26 +64,25 @@ public sealed unsafe class CollectableTurnInJob : IAutomationJob
         _stateMachine.Configure(TurnInState.Completed, Complete);
     }
 
-    public bool CanStart() => InventoryService.HasCollectableTurnIns();
+    public override bool CanStart() => Context?.Inventory.HasCollectableTurnIns() ?? true;
 
-    public void Start(JobContext context)
+    public override void Start(JobContext context)
     {
-        _context = context;
+        base.Start(context);
         ResetRunState();
-        InventoryService.InvalidateTransientCaches();
+        context.Inventory.InvalidateTransientCaches();
         if (context.Config.PreferredCollectableShop == null)
         {
             Fail("Collectable shop is not configured.");
             return;
         }
 
-        Status = JobStatus.Running;
         TransitionTo(TurnInState.CheckingInventory);
     }
 
-    public void Update()
+    public override void Update()
     {
-        if (Status != JobStatus.Running || _context == null)
+        if (Status != JobStatus.Running || Context == null)
             return;
 
         try
@@ -100,12 +95,11 @@ public sealed unsafe class CollectableTurnInJob : IAutomationJob
         }
     }
 
-    public void Stop()
+    public override void Stop()
     {
-        _context?.Navigation.Stop();
         _shopAddon.CloseWindow();
         ResetRunState();
-        Status = JobStatus.Idle;
+        base.Stop();
     }
 
     private void ResetRunState()
@@ -113,11 +107,11 @@ public sealed unsafe class CollectableTurnInJob : IAutomationJob
         _turnInQueue.Clear();
         _currentItemId = 0;
         _currentJobId = -1;
-        _lastAction = DateTime.MinValue;
-        _stateEnteredAt = DateTime.MinValue;
+        LastActionAt = DateTime.MinValue;
+        TransitionedAt = DateTime.MinValue;
         _overcapCheckStartedAt = DateTime.MinValue;
         _submitStartedAt = DateTime.MinValue;
-        _navigationStarted = false;
+        NavigationStarted = false;
         _inventoryCountBeforeSubmit = 0;
         OvercapDetected = false;
         TransitionTo(TurnInState.Idle);
@@ -125,8 +119,8 @@ public sealed unsafe class CollectableTurnInJob : IAutomationJob
 
     private void CheckInventory()
     {
-        var collectables = InventoryService.GetCurrentInventoryItems()
-            .Where(item => item.IsCollectable && InventoryService.IsCollectableTurnInItem(item.BaseItemId))
+        var collectables = Context!.Inventory.GetCurrentInventoryItems()
+            .Where(item => item.IsCollectable && Context.Inventory.IsCollectableTurnInItem(item.BaseItemId))
             .GroupBy(item => item.BaseItemId)
             .ToList();
 
@@ -151,56 +145,34 @@ public sealed unsafe class CollectableTurnInJob : IAutomationJob
     private void MoveToShop()
     {
         var shop = GetPreferredShop();
-        if (!_navigationStarted)
-        {
-            _context!.Navigation.NavigateTo(new NavigationTarget(
-                shop.Location,
-                shop.AetheryteId,
-                shop.TerritoryId,
-                2f,
-                shop.IsLifestreamRequired,
-                shop.LifestreamCommand));
-            _navigationStarted = true;
-            return;
-        }
-
-        if (_context!.Navigation.State == NavigationService.NavigationState.Arrived)
-        {
-            _navigationStarted = false;
-            TransitionTo(TurnInState.WaitingForShopWindow);
-            _lastAction = DateTime.MinValue;
-            return;
-        }
-
-        if (_context.Navigation.State == NavigationService.NavigationState.Failed)
-            Fail(_context.Navigation.ErrorMessage ?? "Could not reach the collectable NPC.");
+        UpdateNavigationToShop(
+            new ShopInteractionContext(
+                new NavigationTarget(shop.Location, shop.AetheryteId, shop.TerritoryId, 2f, shop.IsLifestreamRequired, shop.LifestreamCommand),
+                shop.NpcId,
+                "Could not reach the collectable NPC.",
+                "Timed out while waiting for the collectable window."),
+            TurnInState.WaitingForShopWindow,
+            TransitionTo);
     }
 
     private void WaitForShopWindow()
     {
-        if (_shopAddon.IsReady)
-        {
-            TransitionTo(TurnInState.SelectingJob);
-            _lastAction = DateTime.MinValue;
-            return;
-        }
-
-        if ((DateTime.UtcNow - _stateEnteredAt) > _shopWindowTimeout)
-        {
-            Fail("Timed out while waiting for the collectable window.");
-            return;
-        }
-
-        if ((DateTime.UtcNow - _lastAction) < TimeSpan.FromSeconds(1))
-            return;
-
-        if (_context!.NpcInteraction.TryInteract(GetPreferredShop().NpcId))
-            _lastAction = DateTime.UtcNow;
+        var shop = GetPreferredShop();
+        UpdateShopWindow(
+            _shopAddon.IsReady,
+            _shopWindowTimeout,
+            new ShopInteractionContext(
+                new NavigationTarget(shop.Location, shop.AetheryteId, shop.TerritoryId, 2f, shop.IsLifestreamRequired, shop.LifestreamCommand),
+                shop.NpcId,
+                "Could not reach the collectable NPC.",
+                "Timed out while waiting for the collectable window."),
+            TurnInState.SelectingJob,
+            TransitionTo);
     }
 
     private void SelectJob()
     {
-        if ((DateTime.UtcNow - _lastAction) < _actionDelay)
+        if ((DateTime.UtcNow - LastActionAt) < _actionDelay)
             return;
 
         if (_turnInQueue.Count == 0)
@@ -214,7 +186,7 @@ public sealed unsafe class CollectableTurnInJob : IAutomationJob
         {
             _shopAddon.SelectJob((uint)next.jobId);
             _currentJobId = next.jobId;
-            _lastAction = DateTime.UtcNow;
+            LastActionAt = DateTime.UtcNow;
         }
 
         TransitionTo(TurnInState.SelectingItem);
@@ -222,7 +194,7 @@ public sealed unsafe class CollectableTurnInJob : IAutomationJob
 
     private void SelectItem()
     {
-        if ((DateTime.UtcNow - _lastAction) < _actionDelay)
+        if ((DateTime.UtcNow - LastActionAt) < _actionDelay)
             return;
 
         var next = _turnInQueue.Peek();
@@ -230,7 +202,7 @@ public sealed unsafe class CollectableTurnInJob : IAutomationJob
         {
             _shopAddon.SelectItemById(next.itemId);
             _currentItemId = next.itemId;
-            _lastAction = DateTime.UtcNow;
+            LastActionAt = DateTime.UtcNow;
             return;
         }
 
@@ -239,14 +211,14 @@ public sealed unsafe class CollectableTurnInJob : IAutomationJob
 
     private void SubmitItem()
     {
-        if ((DateTime.UtcNow - _lastAction) < _actionDelay)
+        if ((DateTime.UtcNow - LastActionAt) < _actionDelay)
             return;
 
-        InventoryService.InvalidateTransientCaches();
-        _inventoryCountBeforeSubmit = InventoryService.GetCollectableInventoryItemCount(_currentItemId);
+        Context!.Inventory.InvalidateTransientCaches();
+        _inventoryCountBeforeSubmit = Context.Inventory.GetCollectableInventoryItemCount(_currentItemId);
         _submitStartedAt = DateTime.UtcNow;
         _shopAddon.SubmitItem();
-        _lastAction = DateTime.UtcNow;
+        LastActionAt = DateTime.UtcNow;
         _overcapCheckStartedAt = DateTime.UtcNow;
         TransitionTo(TurnInState.CheckingOvercapDialog);
     }
@@ -268,11 +240,11 @@ public sealed unsafe class CollectableTurnInJob : IAutomationJob
 
     private void WaitForSubmit()
     {
-        if ((DateTime.UtcNow - _lastAction) < _actionDelay)
+        if ((DateTime.UtcNow - LastActionAt) < _actionDelay)
             return;
 
         var current = _turnInQueue.Peek();
-        var currentCount = InventoryService.GetCollectableInventoryItemCount(current.itemId);
+        var currentCount = Context!.Inventory.GetCollectableInventoryItemCount(current.itemId);
         if (currentCount >= _inventoryCountBeforeSubmit)
         {
             if ((DateTime.UtcNow - _submitStartedAt) > _submitTimeout)
@@ -300,12 +272,12 @@ public sealed unsafe class CollectableTurnInJob : IAutomationJob
         _inventoryCountBeforeSubmit = 0;
         _submitStartedAt = DateTime.MinValue;
         TransitionTo(TurnInState.CheckingForMore);
-        _lastAction = DateTime.UtcNow;
+        LastActionAt = DateTime.UtcNow;
     }
 
     private void CheckForMore()
     {
-        if ((DateTime.UtcNow - _lastAction) < _actionDelay)
+        if ((DateTime.UtcNow - LastActionAt) < _actionDelay)
             return;
 
         TransitionTo(_turnInQueue.Count > 0 ? TurnInState.SelectingJob : TurnInState.Completed);
@@ -313,29 +285,26 @@ public sealed unsafe class CollectableTurnInJob : IAutomationJob
 
     private void Complete()
     {
-        _context?.Navigation.Stop();
         _shopAddon.CloseWindow();
-        InventoryService.InvalidateTransientCaches();
-        Status = JobStatus.Completed;
+        Context?.Inventory.InvalidateTransientCaches();
+        MarkCompleted();
         TransitionTo(TurnInState.Idle);
     }
 
     private void Fail(string message)
     {
-        _context?.Navigation.Stop();
         _shopAddon.CloseWindow();
-        InventoryService.InvalidateTransientCaches();
-        Status = JobStatus.Failed;
-        Svc.Log.Error($"[Starloom] CollectableTurnInJob failed: {message}");
+        Context?.Inventory.InvalidateTransientCaches();
+        FailJob(message);
         TransitionTo(TurnInState.Failed);
     }
 
     private void TransitionTo(TurnInState state)
     {
         _stateMachine.TransitionTo(state);
-        _stateEnteredAt = _stateMachine.StateEnteredAt;
+        TransitionedAt = _stateMachine.StateEnteredAt;
     }
 
     private CollectableShop GetPreferredShop()
-        => _context!.Config.PreferredCollectableShop!;
+        => Context!.Config.PreferredCollectableShop!;
 }

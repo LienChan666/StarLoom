@@ -38,8 +38,6 @@ public sealed class JobOrchestrator : IDisposable
         _context = context;
     }
 
-    public void Enqueue(IAutomationJob job) => _pendingJobs.Enqueue(job);
-
     public bool TryStart(IEnumerable<IAutomationJob> jobs)
     {
         if (IsRunning)

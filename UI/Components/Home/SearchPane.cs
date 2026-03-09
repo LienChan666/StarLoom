@@ -1,5 +1,6 @@
-using Dalamud.Bindings.ImGui;
+﻿using Dalamud.Bindings.ImGui;
 using StarLoom.Data;
+using StarLoom.UI;
 using StarLoom.UI.Components.Shared;
 using System;
 using System.Collections.Generic;
@@ -12,23 +13,23 @@ internal sealed class SearchPane
 {
     private const int MaxVisibleItems = 100;
 
-    private readonly Plugin _plugin;
+    private readonly IPluginUiFacade _ui;
     private List<ScripShopItem> _sortedCraftingItems = [];
     private List<ScripShopItem>? _sortedCraftingItemsSource;
     private int _sortedCraftingItemsSourceCount = -1;
     private string _itemSearch = string.Empty;
 
-    public SearchPane(Plugin plugin)
+    public SearchPane(IPluginUiFacade ui)
     {
-        _plugin = plugin;
+        _ui = ui;
     }
 
     public void Draw(Vector2 size)
     {
         using var _ = GamePanelStyle.BeginPanel("##SearchPane", size, GamePanelStyle.BorderSubtle);
-        GamePanelStyle.DrawPanelHeader(_plugin.GetText("home.search.title"), _plugin.GetText("home.search.description"));
+        GamePanelStyle.DrawPanelHeader(_ui.GetText("home.search.title"), _ui.GetText("home.search.description"));
 
-        GamePanelStyle.DrawSettingLabel(_plugin.GetText("home.search.filter_label"));
+        GamePanelStyle.DrawSettingLabel(_ui.GetText("home.search.filter_label"));
 
         ImGui.PushStyleColor(ImGuiCol.FrameBg, GamePanelStyle.Layer0);
         ImGui.PushStyleColor(ImGuiCol.FrameBgHovered, GamePanelStyle.Layer0);
@@ -61,16 +62,16 @@ internal sealed class SearchPane
 
         GamePanelStyle.DrawGradientSeparator();
 
-        if (ScripShopItemManager.IsLoading)
+        if (_ui.IsCatalogLoading)
         {
-            GamePanelStyle.DrawHint(_plugin.GetText("home.search.loading_hint"));
+            GamePanelStyle.DrawHint(_ui.GetText("home.search.loading_hint"));
             return;
         }
 
-        var allItems = ScripShopItemManager.ShopItems;
+        var allItems = _ui.ShopItems.ToList();
         if (allItems.Count == 0)
         {
-            GamePanelStyle.DrawHint(_plugin.GetText("home.search.empty_hint"));
+            GamePanelStyle.DrawHint(_ui.GetText("home.search.empty_hint"));
             return;
         }
 
@@ -79,7 +80,7 @@ internal sealed class SearchPane
         var configuredItemIds = GetConfiguredItemIds();
 
         ImGui.PushStyleColor(ImGuiCol.Text, GamePanelStyle.TextMuted);
-        var countText = _plugin.GetText("home.search.count", filteredItems.Count, MaxVisibleItems);
+        var countText = _ui.GetText("home.search.count", filteredItems.Count, MaxVisibleItems);
         var countWidth = ImGui.CalcTextSize(countText).X;
         ImGui.SetCursorPosX(ImGui.GetContentRegionAvail().X - countWidth + ImGui.GetCursorPosX());
         ImGui.TextUnformatted(countText);
@@ -98,10 +99,10 @@ internal sealed class SearchPane
             return;
         }
 
-        ImGui.TableSetupColumn(_plugin.GetText("home.search.table.name"), ImGuiTableColumnFlags.WidthStretch, 0.50f);
-        ImGui.TableSetupColumn(_plugin.GetText("home.search.table.currency"), ImGuiTableColumnFlags.WidthStretch, 0.22f);
-        ImGui.TableSetupColumn(_plugin.GetText("home.search.table.cost"), ImGuiTableColumnFlags.WidthFixed, 70f);
-        ImGui.TableSetupColumn(_plugin.GetText("home.search.table.action"), ImGuiTableColumnFlags.WidthFixed, 64f);
+        ImGui.TableSetupColumn(_ui.GetText("home.search.table.name"), ImGuiTableColumnFlags.WidthStretch, 0.50f);
+        ImGui.TableSetupColumn(_ui.GetText("home.search.table.currency"), ImGuiTableColumnFlags.WidthStretch, 0.22f);
+        ImGui.TableSetupColumn(_ui.GetText("home.search.table.cost"), ImGuiTableColumnFlags.WidthFixed, 70f);
+        ImGui.TableSetupColumn(_ui.GetText("home.search.table.action"), ImGuiTableColumnFlags.WidthFixed, 64f);
         ImGui.TableHeadersRow();
 
         foreach (var item in filteredItems)
@@ -115,7 +116,7 @@ internal sealed class SearchPane
             ImGui.TextUnformatted(item.Name);
 
             ImGui.TableSetColumnIndex(1);
-            ScripShopUiHelpers.DrawCurrencyLabel(item);
+            ScripShopUiHelpers.DrawCurrencyLabel(_ui, item);
 
             ImGui.TableSetColumnIndex(2);
             ImGui.TextUnformatted(item.ItemCost.ToString());
@@ -144,12 +145,12 @@ internal sealed class SearchPane
         if (GetConfiguredItemIds().Contains(item.ItemId))
             return;
 
-        _plugin.Config.ScripShopItems.Add(new ItemToPurchase
+        _ui.Config.ScripShopItems.Add(new ItemToPurchase
         {
             Item = item,
             Quantity = 1,
         });
-        _plugin.SaveConfig();
+        _ui.SaveConfig();
     }
 
     private List<ScripShopItem> GetVisibleItems()
@@ -172,7 +173,7 @@ internal sealed class SearchPane
     }
 
     private HashSet<uint> GetConfiguredItemIds()
-        => _plugin.Config.ScripShopItems
+        => _ui.Config.ScripShopItems
             .Select(item => item.Item.ItemId)
             .ToHashSet();
 
@@ -192,3 +193,4 @@ internal sealed class SearchPane
         _sortedCraftingItems.Sort(static (left, right) => string.Compare(left.Name, right.Name, StringComparison.Ordinal));
     }
 }
+

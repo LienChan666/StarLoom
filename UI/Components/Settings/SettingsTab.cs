@@ -1,4 +1,5 @@
-using Dalamud.Bindings.ImGui;
+﻿using Dalamud.Bindings.ImGui;
+using StarLoom.UI;
 using StarLoom.UI.Components.Shared;
 using System;
 using System.Numerics;
@@ -15,20 +16,20 @@ internal sealed class SettingsTab
         Display,
     }
 
-    private readonly Plugin _plugin;
+    private readonly IPluginUiFacade _ui;
     private readonly ShopSettingsCard _shopSettingsCard;
     private readonly CraftPointSettingsCard _craftPointSettingsCard;
     private readonly PurchaseSettingsCard _purchaseSettingsCard;
     private readonly DisplaySettingsCard _displaySettingsCard;
     private SettingsSection _selectedSection = SettingsSection.Shop;
 
-    public SettingsTab(Plugin plugin, PluginUi pluginUi)
+    public SettingsTab(IPluginUiFacade ui)
     {
-        _plugin = plugin;
-        _shopSettingsCard = new ShopSettingsCard(plugin);
-        _craftPointSettingsCard = new CraftPointSettingsCard(plugin);
-        _purchaseSettingsCard = new PurchaseSettingsCard(plugin);
-        _displaySettingsCard = new DisplaySettingsCard(plugin, pluginUi);
+        _ui = ui;
+        _shopSettingsCard = new ShopSettingsCard(ui);
+        _craftPointSettingsCard = new CraftPointSettingsCard(ui);
+        _purchaseSettingsCard = new PurchaseSettingsCard(ui);
+        _displaySettingsCard = new DisplaySettingsCard(ui);
     }
 
     public void Draw()
@@ -49,18 +50,18 @@ internal sealed class SettingsTab
         {
             DrawSelectedSection();
             ImGui.Spacing();
-            GamePanelStyle.DrawHint(_plugin.GetText("settings.footer.hint"));
+            GamePanelStyle.DrawHint(_ui.GetText("settings.footer.hint"));
         }
     }
 
     private void DrawSidebar()
     {
-        GamePanelStyle.DrawPanelHeader(_plugin.GetText("settings.sidebar.title"), _plugin.GetText("settings.sidebar.description"));
+        GamePanelStyle.DrawPanelHeader(_ui.GetText("settings.sidebar.title"), _ui.GetText("settings.sidebar.description"));
 
-        DrawSidebarItem(SettingsSection.Shop, _plugin.GetText("settings.sidebar.shop"));
-        DrawSidebarItem(SettingsSection.CraftPoint, _plugin.GetText("settings.sidebar.craft_point"));
-        DrawSidebarItem(SettingsSection.Purchase, _plugin.GetText("settings.sidebar.purchase"));
-        DrawSidebarItem(SettingsSection.Display, _plugin.GetText("settings.sidebar.display"));
+        DrawSidebarItem(SettingsSection.Shop, _ui.GetText("settings.sidebar.shop"));
+        DrawSidebarItem(SettingsSection.CraftPoint, _ui.GetText("settings.sidebar.craft_point"));
+        DrawSidebarItem(SettingsSection.Purchase, _ui.GetText("settings.sidebar.purchase"));
+        DrawSidebarItem(SettingsSection.Display, _ui.GetText("settings.sidebar.display"));
     }
 
     private void DrawSidebarItem(SettingsSection section, string title)
@@ -108,31 +109,32 @@ internal sealed class SettingsTab
             case SettingsSection.Shop:
                 SettingsCard.Draw(
                     "##SettingsShopCard",
-                    _plugin.GetText("settings.card.shop.title"),
-                    _plugin.GetText("settings.card.shop.description"),
+                    _ui.GetText("settings.card.shop.title"),
+                    _ui.GetText("settings.card.shop.description"),
                     _shopSettingsCard.Draw);
                 break;
             case SettingsSection.CraftPoint:
                 SettingsCard.Draw(
                     "##SettingsCraftPointCard",
-                    _plugin.GetText("settings.card.craft_point.title"),
-                    _plugin.GetText("settings.card.craft_point.description"),
+                    _ui.GetText("settings.card.craft_point.title"),
+                    _ui.GetText("settings.card.craft_point.description"),
                     _craftPointSettingsCard.Draw);
                 break;
             case SettingsSection.Purchase:
                 SettingsCard.Draw(
                     "##SettingsPurchaseCard",
-                    _plugin.GetText("settings.card.purchase.title"),
-                    _plugin.GetText("settings.card.purchase.description"),
+                    _ui.GetText("settings.card.purchase.title"),
+                    _ui.GetText("settings.card.purchase.description"),
                     _purchaseSettingsCard.Draw);
                 break;
             case SettingsSection.Display:
                 SettingsCard.Draw(
                     "##SettingsDisplayCard",
-                    _plugin.GetText("settings.card.display.title"),
-                    _plugin.GetText("settings.card.display.description"),
+                    _ui.GetText("settings.card.display.title"),
+                    _ui.GetText("settings.card.display.description"),
                     _displaySettingsCard.Draw);
                 break;
         }
     }
 }
+
