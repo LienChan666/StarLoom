@@ -1,7 +1,6 @@
 using ECommons.UIHelpers.AddonMasterImplementations;
 using FFXIVClientStructs.FFXIV.Client.UI;
 using Lumina.Excel.Sheets;
-using Starloom.Automation;
 using Starloom.GameInterop.Addons;
 using System;
 using System.Collections.Generic;
@@ -33,32 +32,21 @@ public sealed class CollectableTurnInService
     private static readonly TimeSpan OvercapCheckWindow = TimeSpan.FromMilliseconds(500);
 
     private readonly CollectableShopAddon shopAddon = new();
-    private readonly StateMachine<CollectableTurnInState> stateMachine;
     private readonly Queue<(uint itemId, string name, int count, int jobId)> turnInQueue = new();
 
-    public CollectableTurnInState State { get; private set; } = CollectableTurnInState.Idle;
     public string? ErrorMessage { get; private set; }
+    public bool IsCompleted => state == CollectableTurnInState.Done;
+    public bool HasFailed => state == CollectableTurnInState.Failed;
 
+    private CollectableTurnInState state = CollectableTurnInState.Idle;
     private uint currentItemId;
     private int currentJobId = -1;
     private int inventoryCountBeforeSubmit;
     private DateTime lastActionAt;
     private DateTime submitStartedAt;
+    private DateTime stateEnteredAt = DateTime.MinValue;
     private bool navigationStarted;
     private bool overcapDetected;
-
-    public CollectableTurnInService()
-    {
-        stateMachine = new StateMachine<CollectableTurnInState>(CollectableTurnInState.Idle, state => State = state);
-        stateMachine.Configure(CollectableTurnInState.CheckingInventory, HandleCheckingInventory);
-        stateMachine.Configure(CollectableTurnInState.Navigating, HandleNavigating);
-        stateMachine.Configure(CollectableTurnInState.WaitingForShop, HandleWaitingForShop);
-        stateMachine.Configure(CollectableTurnInState.SelectingJob, HandleSelectingJob);
-        stateMachine.Configure(CollectableTurnInState.SelectingItem, HandleSelectingItem);
-        stateMachine.Configure(CollectableTurnInState.Submitting, HandleSubmitting);
-        stateMachine.Configure(CollectableTurnInState.WaitingForSubmit, HandleWaitingForSubmit);
-        stateMachine.Configure(CollectableTurnInState.Cleanup, HandleCleanup);
-    }
 
     public void Start()
     {
@@ -83,12 +71,38 @@ public sealed class CollectableTurnInService
         TransitionTo(CollectableTurnInState.Idle);
     }
 
-    public void Update()
+    public void Advance()
     {
-        if (State is CollectableTurnInState.Idle or CollectableTurnInState.Done or CollectableTurnInState.Failed)
+        if (state is CollectableTurnInState.Idle or CollectableTurnInState.Done or CollectableTurnInState.Failed)
             return;
 
-        stateMachine.Update();
+        switch (state)
+        {
+            case CollectableTurnInState.CheckingInventory:
+                HandleCheckingInventory();
+                return;
+            case CollectableTurnInState.Navigating:
+                HandleNavigating();
+                return;
+            case CollectableTurnInState.WaitingForShop:
+                HandleWaitingForShop();
+                return;
+            case CollectableTurnInState.SelectingJob:
+                HandleSelectingJob();
+                return;
+            case CollectableTurnInState.SelectingItem:
+                HandleSelectingItem();
+                return;
+            case CollectableTurnInState.Submitting:
+                HandleSubmitting();
+                return;
+            case CollectableTurnInState.WaitingForSubmit:
+                HandleWaitingForSubmit();
+                return;
+            case CollectableTurnInState.Cleanup:
+                HandleCleanup();
+                return;
+        }
     }
 
     private void HandleCheckingInventory()
@@ -137,23 +151,27 @@ public sealed class CollectableTurnInService
             shop.Location, shop.AetheryteId, shop.TerritoryId, 2f,
             shop.IsLifestreamRequired, shop.LifestreamCommand);
 
-        if (!navigationStarted || P.Navigation.State == NavigationStatus.Idle)
+        if (!navigationStarted || P.Navigation.IsIdle)
         {
             P.Navigation.NavigateTo(target);
             navigationStarted = true;
             return;
         }
 
-        switch (P.Navigation.State)
+        P.Navigation.Poll();
+        if (P.Navigation.IsComplete)
         {
-            case NavigationStatus.Arrived:
-                navigationStarted = false;
-                lastActionAt = DateTime.MinValue;
-                TransitionTo(CollectableTurnInState.WaitingForShop);
-                return;
-            case NavigationStatus.Failed:
-                Fail(P.Navigation.ErrorMessage ?? "Could not reach the collectable shop.");
-                return;
+            P.Navigation.Stop();
+            navigationStarted = false;
+            lastActionAt = DateTime.MinValue;
+            TransitionTo(CollectableTurnInState.WaitingForShop);
+            return;
+        }
+
+        if (P.Navigation.HasFailed)
+        {
+            Fail(P.Navigation.ErrorMessage ?? "Could not reach the collectable shop.");
+            return;
         }
     }
 
@@ -166,7 +184,7 @@ public sealed class CollectableTurnInService
             return;
         }
 
-        if (stateMachine.TimedOut(ShopWindowTimeout))
+        if (TimedOut(ShopWindowTimeout))
         {
             Fail("Timed out while waiting for the collectable window.");
             return;
@@ -310,6 +328,12 @@ public sealed class CollectableTurnInService
     private bool ActionDelayElapsed()
         => (DateTime.UtcNow - lastActionAt) >= ActionDelay;
 
+    private bool TimedOut(TimeSpan timeout)
+        => (DateTime.UtcNow - stateEnteredAt) > timeout;
+
     private void TransitionTo(CollectableTurnInState state)
-        => stateMachine.TransitionTo(state);
+    {
+        this.state = state;
+        stateEnteredAt = DateTime.UtcNow;
+    }
 }

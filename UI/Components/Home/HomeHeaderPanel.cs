@@ -47,10 +47,6 @@ internal sealed class HomeHeaderPanel
 
     private static string GetOrchestratorStateText()
     {
-        if (P.Session.State != ArtisanSessionState.Idle)
-            return P.Localization.Get(P.Session.GetStateKey());
-
-        var key = P.TM.IsBusy ? "state.orchestrator.running" : "state.orchestrator.idle";
-        return P.Localization.Get(key);
+        return P.Localization.Get(P.Automation.GetStateKey());
     }
 }

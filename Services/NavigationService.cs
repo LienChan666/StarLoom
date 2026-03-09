@@ -30,28 +30,18 @@ public record NavigationTarget(
 public sealed class NavigationService
 {
     private static readonly TimeSpan LocalActionReadyStableDuration = TimeSpan.FromMilliseconds(500);
-    private readonly StateMachine<NavigationStatus> stateMachine;
-
-    public NavigationStatus State { get; private set; } = NavigationStatus.Idle;
+    private NavigationStatus status = NavigationStatus.Idle;
     public string? ErrorMessage { get; private set; }
+    public bool IsIdle => status == NavigationStatus.Idle;
+    public bool IsComplete => status == NavigationStatus.Arrived;
+    public bool HasFailed => status == NavigationStatus.Failed;
 
     private NavigationTarget? target;
     private DateTime lastAction = DateTime.MinValue;
     private DateTime movementStartTime = DateTime.MinValue;
-    private DateTime? localActionReadyAt;
+    private DateTime? _localActionReadyAt;
     private bool teleportAttempted;
     private bool lifestreamAttempted;
-
-    public NavigationService()
-    {
-        stateMachine = new StateMachine<NavigationStatus>(NavigationStatus.Idle, state => State = state);
-        stateMachine.Configure(NavigationStatus.Teleporting, () => HandleTeleport(GetCurrentDistance()));
-        stateMachine.Configure(NavigationStatus.WaitingForTeleport, HandleWaitingForTeleport);
-        stateMachine.Configure(NavigationStatus.UsingLifestream, () => HandleLifestream(GetCurrentDistance()));
-        stateMachine.Configure(NavigationStatus.WaitingForLifestream, HandleWaitingForLifestream);
-        stateMachine.Configure(NavigationStatus.Pathfinding, HandlePathfinding);
-        stateMachine.Configure(NavigationStatus.WaitingForArrival, () => HandleWaitForArrival(GetCurrentDistance()));
-    }
 
     public void NavigateTo(NavigationTarget target)
     {
@@ -60,7 +50,7 @@ public sealed class NavigationService
         lifestreamAttempted = false;
         lastAction = DateTime.MinValue;
         movementStartTime = DateTime.MinValue;
-        localActionReadyAt = null;
+        _localActionReadyAt = null;
         ErrorMessage = null;
         TransitionTo(NavigationStatus.Teleporting);
     }
@@ -70,13 +60,13 @@ public sealed class NavigationService
         VNavmeshIpc.Stop();
         TransitionTo(NavigationStatus.Idle);
         target = null;
-        localActionReadyAt = null;
+        _localActionReadyAt = null;
         ErrorMessage = null;
     }
 
-    public void Update()
+    public void Poll()
     {
-        if (State is NavigationStatus.Idle or NavigationStatus.Arrived or NavigationStatus.Failed)
+        if (status is NavigationStatus.Idle or NavigationStatus.Arrived or NavigationStatus.Failed)
             return;
 
         if (target == null)
@@ -96,7 +86,27 @@ public sealed class NavigationService
             return;
         }
 
-        stateMachine.Update();
+        switch (status)
+        {
+            case NavigationStatus.Teleporting:
+                HandleTeleport(distance);
+                return;
+            case NavigationStatus.WaitingForTeleport:
+                HandleWaitingForTeleport();
+                return;
+            case NavigationStatus.UsingLifestream:
+                HandleLifestream(distance);
+                return;
+            case NavigationStatus.WaitingForLifestream:
+                HandleWaitingForLifestream();
+                return;
+            case NavigationStatus.Pathfinding:
+                HandlePathfinding();
+                return;
+            case NavigationStatus.WaitingForArrival:
+                HandleWaitForArrival(distance);
+                return;
+        }
     }
 
     private float GetCurrentDistance()
@@ -230,29 +240,29 @@ public sealed class NavigationService
     {
         Svc.Log.Error($"Navigation failed: {message} (territory={Svc.ClientState.TerritoryType}, target={target?.TerritoryId})");
         ErrorMessage = message;
-        localActionReadyAt = null;
+        _localActionReadyAt = null;
         VNavmeshIpc.Stop();
         TransitionTo(NavigationStatus.Failed);
     }
 
     private void TransitionTo(NavigationStatus state)
-        => stateMachine.TransitionTo(state);
+        => status = state;
 
     private bool HasStableLocalControl()
     {
         var localStatus = LocalPlayerActionGate.GetStatus();
         if (!LocalPlayerActionGate.IsReadyForAutomation(localStatus))
         {
-            localActionReadyAt = null;
+            _localActionReadyAt = null;
             return false;
         }
 
-        if (localActionReadyAt is null)
+        if (_localActionReadyAt is null)
         {
-            localActionReadyAt = DateTime.UtcNow;
+            _localActionReadyAt = DateTime.UtcNow;
             return false;
         }
 
-        return (DateTime.UtcNow - localActionReadyAt.Value) >= LocalActionReadyStableDuration;
+        return (DateTime.UtcNow - _localActionReadyAt.Value) >= LocalActionReadyStableDuration;
     }
 }
