@@ -1,6 +1,5 @@
-using Dalamud.Bindings.ImGui;
+﻿using Dalamud.Bindings.ImGui;
 using Starloom.Automation;
-using Starloom.UI.Components.Shared;
 using System;
 using System.Numerics;
 
@@ -10,75 +9,96 @@ internal sealed class HomeControlPane
 {
     public void Draw(Vector2 size)
     {
-        using var _ = GamePanelStyle.BeginPanel("##HomeControlPane", size, GamePanelStyle.BorderAccent, GamePanelStyle.Gold);
-        GamePanelStyle.DrawPanelHeader(P.Localization.Get("home.control.title"), P.Localization.Get("home.control.description"));
+        if (!ImGui.BeginChild("##HomeControlPane", size, true))
+        {
+            ImGui.EndChild();
+            return;
+        }
 
+        ImGui.TextUnformatted(P.Localization.Get("home.control.title"));
+        ImGui.Separator();
         DrawStatusSection();
         ImGui.Spacing();
         DrawArtisanListSection();
+        ImGui.Separator();
         ImGui.Spacing();
         DrawPrimaryActions();
         ImGui.Spacing();
         DrawQuickActions();
-        ImGui.Spacing();
-        GamePanelStyle.DrawHint(P.Localization.Get("home.control.hint"));
+        ImGui.EndChild();
     }
 
     private static void DrawStatusSection()
     {
-        GamePanelStyle.DrawSectionTitle(P.Localization.Get("home.control.total_state.title"), P.Localization.Get("home.control.total_state.description"));
-        GamePanelStyle.DrawGradientSeparator();
+        if (!ImGui.BeginTable("##HomeStatusTable", 2, ImGuiTableFlags.SizingStretchProp | ImGuiTableFlags.NoSavedSettings))
+            return;
 
-        var schedulerColor = P.Automation.IsBusy ? GamePanelStyle.Gold : GamePanelStyle.Success;
-        GamePanelStyle.DrawStatusDot(schedulerColor);
-        GamePanelStyle.DrawInfoRow("home.control.total_state", P.Localization.Get("common.state"), GetOrchestratorStateText());
-        GamePanelStyle.DrawInfoRow("home.control.current_list", P.Localization.Get("common.current_list"), C.ArtisanListId.ToString());
+        ImGui.TableSetupColumn("##HomeStatusLabel", ImGuiTableColumnFlags.WidthFixed, 90f);
+        ImGui.TableSetupColumn("##HomeStatusValue", ImGuiTableColumnFlags.WidthStretch);
+
+        DrawStatusRow(P.Localization.Get("common.state"), GetOrchestratorStateText());
+        DrawStatusRow(P.Localization.Get("common.current_list"), C.ArtisanListId.ToString());
+
+        ImGui.EndTable();
     }
 
     private static void DrawArtisanListSection()
     {
-        GamePanelStyle.DrawSectionTitle(P.Localization.Get("home.control.artisan_list.title"), P.Localization.Get("home.control.artisan_list.description"));
-
         var artisanListId = C.ArtisanListId;
         var previousArtisanListId = artisanListId;
 
-        GamePanelStyle.DrawSettingLabel(P.Localization.Get("home.control.artisan_list.input_label"));
+        ImGui.TextUnformatted(P.Localization.Get("home.control.artisan_list.input_label"));
         ImGui.SetNextItemWidth(-1f);
         if (ImGui.InputInt("##HomeArtisanListId", ref artisanListId, 0, 0))
             C.ArtisanListId = Math.Max(0, artisanListId);
 
         if (ImGui.IsItemDeactivatedAfterEdit() && C.ArtisanListId != previousArtisanListId)
             P.ConfigStore.Save();
-
-        GamePanelStyle.DrawHint(P.Localization.Get("home.control.artisan_list.hint"));
     }
 
     private static void DrawPrimaryActions()
     {
-        var buttonWidth = ImGui.GetContentRegionAvail().X;
         var isRunning = P.Automation.IsBusy;
+        var buttonWidth = ImGui.GetContentRegionAvail().X;
 
-        GamePanelStyle.DrawSectionTitle(P.Localization.Get("home.control.workflow.title"), P.Localization.Get("home.control.workflow.description"));
-        if (GamePanelStyle.DrawActionButton("home.control.start", P.Localization.Get("common.start"), GamePanelStyle.Accent, buttonWidth, !isRunning, "▶"))
+        ImGui.BeginDisabled(isRunning);
+        if (ImGui.Button(P.Localization.Get("common.start"), new Vector2(buttonWidth, 0f)))
             P.Automation.StartConfiguredWorkflow();
-        if (GamePanelStyle.DrawActionButton("home.control.stop", P.Localization.Get("common.stop"), GamePanelStyle.Danger, buttonWidth, isRunning, "■"))
+        ImGui.EndDisabled();
+
+        ImGui.BeginDisabled(!isRunning);
+        if (ImGui.Button(P.Localization.Get("common.stop"), new Vector2(buttonWidth, 0f)))
             P.Automation.Stop();
+        ImGui.EndDisabled();
     }
 
     private static void DrawQuickActions()
     {
-        var buttonWidth = ImGui.GetContentRegionAvail().X;
         var isRunning = P.Automation.IsBusy;
         var hasConfiguredPurchases = P.Automation.HasConfiguredPurchases;
+        var buttonWidth = ImGui.GetContentRegionAvail().X;
 
-        GamePanelStyle.DrawSectionTitle(P.Localization.Get("home.control.quick.title"), P.Localization.Get("home.control.quick.description"));
-        if (GamePanelStyle.DrawActionButton("home.control.turn_in", P.Localization.Get("home.control.quick.turn_in"), GamePanelStyle.Success, buttonWidth, !isRunning, "↑"))
+        ImGui.BeginDisabled(isRunning);
+        if (ImGui.Button(P.Localization.Get("home.control.quick.turn_in"), new Vector2(buttonWidth, 0f)))
             P.Automation.StartCollectableTurnIn();
-        if (GamePanelStyle.DrawActionButton("home.control.purchase", P.Localization.Get("home.control.quick.purchase"), GamePanelStyle.Warning, buttonWidth, !isRunning && hasConfiguredPurchases, "↓"))
+        ImGui.EndDisabled();
+
+        ImGui.BeginDisabled(isRunning || !hasConfiguredPurchases);
+        if (ImGui.Button(P.Localization.Get("home.control.quick.purchase"), new Vector2(buttonWidth, 0f)))
             P.Automation.StartPurchaseOnly();
+        ImGui.EndDisabled();
 
         if (!hasConfiguredPurchases)
-            GamePanelStyle.DrawHint(P.Localization.Get("home.control.quick.hint_purchase_required"));
+            ImGui.TextDisabled(P.Localization.Get("home.control.quick.hint_purchase_required"));
+    }
+
+    private static void DrawStatusRow(string label, string value)
+    {
+        ImGui.TableNextRow();
+        ImGui.TableSetColumnIndex(0);
+        ImGui.TextUnformatted(label);
+        ImGui.TableSetColumnIndex(1);
+        ImGui.TextUnformatted(value);
     }
 
     private static string GetOrchestratorStateText()

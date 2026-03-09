@@ -1,4 +1,4 @@
-using Dalamud.Bindings.ImGui;
+﻿using Dalamud.Bindings.ImGui;
 using Starloom.Data;
 using Starloom.UI.Components.Shared;
 using System;
@@ -15,7 +15,7 @@ internal sealed class PurchaseSettingsCard
         var buyAfterEachTurnIn = C.BuyAfterEachTurnIn;
         ImGui.TableNextRow();
         ImGui.TableSetColumnIndex(0);
-        GamePanelStyle.DrawSettingLabel(P.Localization.Get("settings.purchase.auto_buy"));
+        ImGui.TextUnformatted(P.Localization.Get("settings.purchase.auto_buy"));
         ImGui.TableSetColumnIndex(1);
         if (ImGui.Checkbox($"{P.Localization.Get("settings.purchase.auto_buy_toggle")}##BuyAfterEachTurnIn", ref buyAfterEachTurnIn))
         {
@@ -30,7 +30,7 @@ internal sealed class PurchaseSettingsCard
 
         ImGui.TableNextRow();
         ImGui.TableSetColumnIndex(0);
-        GamePanelStyle.DrawSettingLabel(P.Localization.Get("settings.purchase.action"));
+        ImGui.TextUnformatted(P.Localization.Get("settings.purchase.action"));
         ImGui.TableSetColumnIndex(1);
         ImGui.SetNextItemWidth(Math.Min(220f, ImGui.GetContentRegionAvail().X));
         if (ImGui.BeginCombo("##PostPurchaseAction", actionPreview))
@@ -54,7 +54,7 @@ internal sealed class PurchaseSettingsCard
         var previousReserveScripAmount = reserveScripAmount;
         ImGui.TableNextRow();
         ImGui.TableSetColumnIndex(0);
-        GamePanelStyle.DrawSettingLabel(P.Localization.Get("settings.purchase.reserve"));
+        ImGui.TextUnformatted(P.Localization.Get("settings.purchase.reserve"));
         ImGui.TableSetColumnIndex(1);
         ImGui.SetNextItemWidth(Math.Min(160f, ImGui.GetContentRegionAvail().X));
         if (ImGui.InputInt("##ReserveScripAmount", ref reserveScripAmount, 0, 0))
@@ -67,7 +67,7 @@ internal sealed class PurchaseSettingsCard
         var previousFreeSlotThreshold = freeSlotThreshold;
         ImGui.TableNextRow();
         ImGui.TableSetColumnIndex(0);
-        GamePanelStyle.DrawSettingLabel(P.Localization.Get("settings.purchase.free_slots"));
+        ImGui.TextUnformatted(P.Localization.Get("settings.purchase.free_slots"));
         ImGui.TableSetColumnIndex(1);
         ImGui.SetNextItemWidth(Math.Min(160f, ImGui.GetContentRegionAvail().X));
         if (ImGui.InputInt("##FreeSlotThreshold", ref freeSlotThreshold, 0, 0))

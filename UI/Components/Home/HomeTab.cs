@@ -1,46 +1,34 @@
-using Dalamud.Bindings.ImGui;
+﻿using Dalamud.Bindings.ImGui;
 using Starloom.UI.Components.Shared;
-using System;
 using System.Numerics;
 
 namespace Starloom.UI.Components.Home;
 
 internal sealed class HomeTab
 {
-    private readonly HomeHeaderPanel headerPanel = new();
+    private const float PaneSpacing = 12f;
+
     private readonly HomeControlPane controlPane = new();
     private readonly SearchPane searchPane = new();
     private readonly SelectedItemsPane selectedItemsPane = new();
 
     public void Draw()
     {
-        var headerHeight = Math.Clamp(ImGui.GetContentRegionAvail().Y * 0.18f, 88f, 112f);
-        headerPanel.Draw(new Vector2(0f, headerHeight));
-
-        ImGui.Dummy(new Vector2(0, GamePanelStyle.Spacing.Sm));
-        DrawMainContent();
-    }
-
-    private void DrawMainContent()
-    {
         var availableSize = ImGui.GetContentRegionAvail();
-        var spacing = GamePanelStyle.Spacing.Md;
-        var leftWidth = Math.Clamp(availableSize.X * 0.30f, 280f, 340f);
-        var rightWidth = Math.Max(0f, availableSize.X - leftWidth - spacing);
+        var layout = LayoutMetrics.CreateHome(availableSize.X, availableSize.Y, PaneSpacing);
 
-        controlPane.Draw(new Vector2(leftWidth, availableSize.Y));
-        ImGui.SameLine(0f, spacing);
+        controlPane.Draw(new Vector2(layout.LeftWidth, availableSize.Y));
+        ImGui.SameLine(0f, PaneSpacing);
 
-        using var _ = GamePanelStyle.BeginPanel("##HomeFlowShell", new Vector2(rightWidth, availableSize.Y), GamePanelStyle.BorderSubtle);
-        GamePanelStyle.DrawPanelHeader(P.Localization.Get("home.flow.title"), P.Localization.Get("home.flow.description"));
+        if (!ImGui.BeginChild("##HomeContent", new Vector2(layout.RightWidth, availableSize.Y), true))
+        {
+            ImGui.EndChild();
+            return;
+        }
 
-        var contentHeight = ImGui.GetContentRegionAvail().Y;
-        var verticalSpacing = GamePanelStyle.Spacing.Sm;
-        var topHeight = Math.Max(190f, (contentHeight - verticalSpacing) * 0.44f);
-        var remainingHeight = Math.Max(0f, contentHeight - topHeight - verticalSpacing);
-
-        searchPane.Draw(new Vector2(0f, topHeight));
-        ImGui.Dummy(new Vector2(0, verticalSpacing));
-        selectedItemsPane.Draw(new Vector2(0f, remainingHeight));
+        searchPane.Draw(new Vector2(0f, layout.TopHeight));
+        ImGui.Dummy(new Vector2(0f, PaneSpacing));
+        selectedItemsPane.Draw(new Vector2(0f, layout.BottomHeight));
+        ImGui.EndChild();
     }
 }
