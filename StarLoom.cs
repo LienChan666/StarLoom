@@ -35,7 +35,7 @@ public sealed class StarLoom : IDalamudPlugin
         var purchaseCatalog = new PurchaseCatalog();
         var artisanTask = new ArtisanTask(new ArtisanIpc(), pluginConfig);
         var navigationTask = new NavigationTask(new VNavmeshIpc(), new LifestreamIpc());
-        var turnInTask = new TurnInTask(inventoryGame, npcGame, collectableShopGame);
+        var turnInTask = new TurnInTask(inventoryGame, collectableShopGame, new TurnInJobResolver());
         var purchaseTask = new PurchaseTask(pluginConfig, inventoryGame, scripShopGame);
 
         workflowTask = new WorkflowTask(

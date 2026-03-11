@@ -1,5 +1,18 @@
 namespace StarLoom.Tasks.TurnIn;
 
+public enum TurnInStage
+{
+    Idle,
+    WaitingForCollectableShop,
+    SelectingJob,
+    SelectingItem,
+    Submitting,
+    WaitingForSubmit,
+    Cleanup,
+    Completed,
+    Failed,
+}
+
 public readonly record struct TurnInCandidate(
     uint itemId,
     string itemName,

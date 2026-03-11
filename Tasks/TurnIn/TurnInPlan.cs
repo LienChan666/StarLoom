@@ -5,8 +5,13 @@ public static class TurnInPlan
     public static List<TurnInEntry> BuildQueue(IEnumerable<TurnInCandidate> candidates)
     {
         return candidates
-            .Where(candidate => candidate.isCollectable && candidate.quantity > 0)
-            .Select(candidate => new TurnInEntry(candidate.itemId, candidate.itemName, candidate.quantity, candidate.jobId))
+            .Where(candidate => candidate.isCollectable && candidate.quantity > 0 && candidate.jobId > 0)
+            .GroupBy(candidate => new { candidate.itemId, candidate.itemName, candidate.jobId })
+            .Select(group => new TurnInEntry(
+                group.Key.itemId,
+                group.Key.itemName,
+                group.Sum(candidate => candidate.quantity),
+                group.Key.jobId))
             .ToList();
     }
 }

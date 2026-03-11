@@ -167,7 +167,7 @@ public sealed class WorkflowTask
             pluginConfig,
             new ArtisanTask(new NoOpArtisanIpc(), pluginConfig),
             new NavigationTask(new NoOpVNavmeshIpc(), new NoOpLifestreamIpc()),
-            new TurnInTask(),
+            new TurnInTask(new InventoryGame(), new NoOpCollectableShopGame(), new TurnInJobResolver()),
             new PurchaseTask(pluginConfig, new InventoryGame(), new ScripShopGame()),
             new InventoryGame(),
             new PlayerStateGame(),
@@ -1115,5 +1115,15 @@ public sealed class WorkflowTask
         public void ExecuteCommand(string command) { }
         public void Abort() { }
         public void EnqueueInnShortcut(int? mode = null) { }
+    }
+
+    private sealed class NoOpCollectableShopGame : CollectableShopGame
+    {
+        public override bool IsReady() => true;
+        public override void SelectJob(uint jobId) { }
+        public override void SelectItemById(uint itemId) { }
+        public override void SubmitItem() { }
+        public override bool TryDismissOvercapDialog() => false;
+        public override void CloseWindow() { }
     }
 }
