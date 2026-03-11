@@ -1,3 +1,5 @@
+global using System;
+global using System.Collections.Generic;
 global using Dalamud.Plugin.Services;
 global using ECommons.DalamudServices;
 global using ECommons.Logging;

@@ -1,0 +1,7 @@
+{
+  "home.title": "StarLoom",
+  "settings.title": "Settings",
+  "workflow.idle": "Idle",
+  "workflow.running": "Running",
+  "workflow.failed": "Failed"
+}
