@@ -22,7 +22,8 @@ public sealed class WorkflowStartPreconditionSourceTests
         var source = ReadSource(Path.Combine("Automation", "WorkflowOrchestrator.cs"));
 
         Assert.Contains("if (!IsInsideStartLocation())", source);
-        Assert.Contains("WorkflowState.StartingArtisan", source);
+        Assert.Contains("dispatcher.DispatchConfiguredWorkflow(artisanListManaged);", source);
+        Assert.Contains("State = WorkflowState.MonitoringArtisan;", source);
         Assert.Contains("ResumePendingStartAfterReturn", source);
     }
 
@@ -34,6 +35,36 @@ public sealed class WorkflowStartPreconditionSourceTests
         Assert.Contains("pendingStart", source);
         Assert.Contains("WorkflowState.WaitingForStartReturn", source);
         Assert.Contains("if (!P.TM.IsBusy && State == WorkflowState.WaitingForStartReturn)", source);
+    }
+
+    [Fact]
+    public void StartCollectableTurnIn_Must_Not_Depend_On_Returning_Inside_Before_Start()
+    {
+        var source = ReadSource(Path.Combine("Automation", "WorkflowOrchestrator.cs"));
+
+        Assert.Contains("internal void StartCollectableTurnIn()", source);
+        Assert.DoesNotContain("PrepareStartOrReturn(PendingStartKind.CollectableTurnIn)", source);
+        Assert.Contains("StartCollectableTurnInCore();", source);
+    }
+
+    [Fact]
+    public void StartPurchaseOnly_Must_Not_Depend_On_Returning_Inside_Before_Start()
+    {
+        var source = ReadSource(Path.Combine("Automation", "WorkflowOrchestrator.cs"));
+
+        Assert.Contains("internal void StartPurchaseOnly()", source);
+        Assert.DoesNotContain("PrepareStartOrReturn(PendingStartKind.PurchaseOnly)", source);
+        Assert.Contains("StartPurchaseOnlyCore();", source);
+    }
+
+    [Fact]
+    public void StartLocation_Return_Precondition_Must_Be_Reserved_For_Configured_Workflow_Only()
+    {
+        var source = ReadSource(Path.Combine("Automation", "WorkflowOrchestrator.cs"));
+
+        Assert.Contains("PrepareStartOrReturn(PendingStartKind.ConfiguredWorkflow)", source);
+        Assert.DoesNotContain("PrepareStartOrReturn(PendingStartKind.CollectableTurnIn)", source);
+        Assert.DoesNotContain("PrepareStartOrReturn(PendingStartKind.PurchaseOnly)", source);
     }
 
     private static string ReadSource(string relativePath)

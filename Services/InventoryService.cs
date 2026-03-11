@@ -70,7 +70,9 @@ public sealed unsafe class InventoryService
         => GetCurrentSnapshot().FreeSlotCount;
 
     public bool HasCollectableTurnIns()
-        => GetCurrentSnapshot().Items.Any(item => item.IsCollectable && IsCollectableTurnInItem(item.BaseItemId));
+    {
+        return GetCurrentSnapshot().Items.Any(item => item.IsCollectable && IsCollectableTurnInItem(item.BaseItemId));
+    }
 
     public Item? GetItemRow(uint itemId)
         => Svc.Data.GetExcelSheet<Item>()?.GetRow(itemId);

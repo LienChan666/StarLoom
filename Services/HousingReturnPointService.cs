@@ -103,7 +103,25 @@ public static unsafe class HousingReturnPointService
             return true;
         }
 
+        if (CanEnterDirectlyFromCurrentLocation(point))
+            return true;
+
         return NativeTeleporter.Teleport(point.AetheryteId, point.SubIndex);
+    }
+
+    public static bool CanEnterDirectlyFromCurrentLocation(HousingReturnPoint point)
+    {
+        if (point.IsInn)
+            return false;
+
+        if (Svc.ClientState.TerritoryType != point.TerritoryId)
+            return false;
+
+        if (Svc.Objects.LocalPlayer is not { } localPlayer)
+            return false;
+
+        return TryGetHousingEntrance(localPlayer.Position, point.IsApartment, out var entrance)
+            && entrance != null;
     }
 
     public static bool IsInsideHouse()

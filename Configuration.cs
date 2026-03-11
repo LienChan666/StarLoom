@@ -13,7 +13,6 @@ public class Configuration : IPluginConfiguration
     public int ArtisanListId { get; set; }
     public HousingReturnPoint? DefaultCraftReturnPoint { get; set; } = HousingReturnPoint.CreateInn();
     public CollectableShop? PreferredCollectableShop { get; set; }
-    public bool BuyAfterEachTurnIn { get; set; }
     public PurchaseCompletionAction PostPurchaseAction { get; set; } = PurchaseCompletionAction.ReturnToConfiguredPoint;
     public bool ShowStatusOverlay { get; set; }
     public string UiLanguage { get; set; } = "zh";

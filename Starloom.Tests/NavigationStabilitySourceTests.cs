@@ -27,6 +27,6 @@ public sealed class NavigationStabilitySourceTests
         var actionsPath = Path.Combine(RepoRoot, "Tasks", "Actions", "NavigationActions.cs");
 
         Assert.DoesNotContain("P.Navigation.Update()", orchestratorSource);
-        Assert.True(File.Exists(actionsPath), "缺少 NavigationActions 动作层文件。");
+        Assert.False(File.Exists(actionsPath), "未接管生产调用的 NavigationActions 应删除，避免双轨导航编排。");
     }
 }

@@ -37,8 +37,6 @@
     "settings.sidebar.purchase":  "购买设置",
     "settings.sidebar.display":  "界面设置",
     "settings.shop.collectable_shop":  "收藏品商店",
-    "settings.purchase.auto_buy":  "自动购买",
-    "settings.purchase.auto_buy_toggle":  "提交后自动购买",
     "settings.purchase.action":  "完成动作",
     "settings.purchase.action.return_point":  "返回配置返回点",
     "settings.purchase.action.close_game":  "关闭游戏",

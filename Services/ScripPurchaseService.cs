@@ -115,7 +115,7 @@ public sealed class ScripPurchaseService
         }
 
         purchaseQueue.Clear();
-        foreach (var item in P.PurchaseResolver.Resolve())
+        foreach (var item in P.PurchaseResolver.ResolvePendingTargets())
             purchaseQueue.Enqueue(item);
 
         if (purchaseQueue.Count == 0)

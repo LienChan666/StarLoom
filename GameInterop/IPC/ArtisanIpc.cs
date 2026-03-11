@@ -39,6 +39,18 @@ public sealed class ArtisanIpc : IArtisanIpc
     {
         ipcCallRunner.EnsureAvailable();
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(listId);
+
+        if (IsListRunning())
+        {
+            if (GetStopRequest())
+                SetStopRequest(false);
+
+            if (IsListPaused())
+                SetListPause(false);
+
+            return;
+        }
+
         Chat.SendMessage($"/artisan lists {listId} start");
     }
 

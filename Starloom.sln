@@ -1,0 +1,30 @@
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.5.2.0
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Starloom", "Starloom.csproj", "{A54FEDF3-38F5-9CD4-D149-0723AF708427}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Starloom.Tests", "Starloom.Tests\Starloom.Tests.csproj", "{F38C263F-0D0C-AC5C-1174-68DF790E19D4}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{A54FEDF3-38F5-9CD4-D149-0723AF708427}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{A54FEDF3-38F5-9CD4-D149-0723AF708427}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{A54FEDF3-38F5-9CD4-D149-0723AF708427}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{A54FEDF3-38F5-9CD4-D149-0723AF708427}.Release|Any CPU.Build.0 = Release|Any CPU
+		{F38C263F-0D0C-AC5C-1174-68DF790E19D4}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{F38C263F-0D0C-AC5C-1174-68DF790E19D4}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{F38C263F-0D0C-AC5C-1174-68DF790E19D4}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{F38C263F-0D0C-AC5C-1174-68DF790E19D4}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {F58FD577-8E2F-4932-BE5B-653F74AED067}
+	EndGlobalSection
+EndGlobal

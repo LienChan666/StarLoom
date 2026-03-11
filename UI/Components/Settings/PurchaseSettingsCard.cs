@@ -12,17 +12,6 @@ internal sealed class PurchaseSettingsCard
         if (!GamePanelStyle.BeginSettingsTable("##PurchaseSettingsTable"))
             return;
 
-        var buyAfterEachTurnIn = C.BuyAfterEachTurnIn;
-        ImGui.TableNextRow();
-        ImGui.TableSetColumnIndex(0);
-        ImGui.TextUnformatted(P.Localization.Get("settings.purchase.auto_buy"));
-        ImGui.TableSetColumnIndex(1);
-        if (ImGui.Checkbox($"{P.Localization.Get("settings.purchase.auto_buy_toggle")}##BuyAfterEachTurnIn", ref buyAfterEachTurnIn))
-        {
-            C.BuyAfterEachTurnIn = buyAfterEachTurnIn;
-            P.ConfigStore.Save();
-        }
-
         var postPurchaseAction = C.PostPurchaseAction;
         var actionPreview = P.Localization.Get(postPurchaseAction == PurchaseCompletionAction.CloseGame
             ? "settings.purchase.action.close_game"

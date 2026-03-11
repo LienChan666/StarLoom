@@ -23,7 +23,7 @@ internal static class WorkflowStartValidator
             return false;
         }
 
-        var pendingItems = P.PurchaseResolver.Resolve();
+        var pendingItems = P.PurchaseResolver.ResolvePendingTargets();
         if (C.ScripShopItems.TrueForAll(item => item.Item == null || item.Quantity <= 0))
         {
             errorMessage = "The purchase list is empty or has no valid target quantities.";
@@ -40,7 +40,7 @@ internal static class WorkflowStartValidator
         return true;
     }
 
-    internal static bool CanStartArtisanList(out string errorMessage)
+    internal static bool CanStartArtisanList(bool artisanListManaged, out string errorMessage)
     {
         if (!P.Artisan.IsAvailable())
         {
@@ -52,6 +52,12 @@ internal static class WorkflowStartValidator
         {
             errorMessage = "Artisan list id is required.";
             return false;
+        }
+
+        if (artisanListManaged && P.Artisan.IsListRunning())
+        {
+            errorMessage = string.Empty;
+            return true;
         }
 
         if (P.Artisan.IsListRunning() || P.Artisan.GetEnduranceStatus() || P.Artisan.IsBusy())

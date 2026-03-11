@@ -37,8 +37,6 @@
     "settings.sidebar.purchase":  "Purchase",
     "settings.sidebar.display":  "Display",
     "settings.shop.collectable_shop":  "Collectable Shop",
-    "settings.purchase.auto_buy":  "Auto Purchase",
-    "settings.purchase.auto_buy_toggle":  "Purchase after turn-in",
     "settings.purchase.action":  "Completion Action",
     "settings.purchase.action.return_point":  "Return to configured point",
     "settings.purchase.action.close_game":  "Close game",
