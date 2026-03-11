@@ -5,12 +5,12 @@ using System.Numerics;
 
 namespace StarLoom.Game;
 
-public sealed unsafe class NpcGame
+public unsafe class NpcGame
 {
     private DateTime lastInteraction = DateTime.MinValue;
     private readonly TimeSpan interactionCooldown = TimeSpan.FromSeconds(1);
 
-    public bool TryInteract(uint npcId, float maxDistance = 6f)
+    public virtual bool TryInteract(uint npcId, float maxDistance = 6f)
     {
         if ((DateTime.UtcNow - lastInteraction) < interactionCooldown)
             return false;
@@ -22,7 +22,7 @@ public sealed unsafe class NpcGame
         return TryInteract(npc, maxDistance);
     }
 
-    public bool TryInteract(IGameObject gameObject, float maxDistance = 6f)
+    public virtual bool TryInteract(IGameObject gameObject, float maxDistance = 6f)
     {
         if ((DateTime.UtcNow - lastInteraction) < interactionCooldown)
             return false;

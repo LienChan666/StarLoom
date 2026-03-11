@@ -176,6 +176,19 @@ public sealed class WorkflowTaskTests
     }
 
     [Fact]
+    public void StartPurchaseOnly_Should_Fail_When_Purchase_List_Is_Empty()
+    {
+        var config = CreateConfig();
+        config.scripShopItems = [];
+        var workflowTask = WorkflowTask.CreateForTests(config);
+
+        workflowTask.StartPurchaseOnly();
+
+        Assert.Equal("Failed", workflowTask.currentStage);
+        Assert.Equal("The purchase list is empty.", workflowTask.lastErrorMessage);
+    }
+
+    [Fact]
     public void StartPurchaseOnly_Should_Navigate_To_Scrip_Shop_When_Travel_Is_Required()
     {
         var workflowTask = WorkflowTask.CreateForTests(CreateConfig());

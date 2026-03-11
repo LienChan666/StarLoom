@@ -1,6 +1,7 @@
 using StarLoom.Config;
 using StarLoom.Game;
 using StarLoom.Tasks.Artisan;
+using StarLoom.Tasks.Purchase;
 
 namespace StarLoom.Tasks;
 
@@ -74,10 +75,7 @@ internal static class WorkflowStartValidator
 
     internal static bool HasPendingPurchaseWork(PluginConfig pluginConfig, InventoryGame inventoryGame)
     {
-        return pluginConfig.scripShopItems.Any(item =>
-            item.itemId > 0
-            && item.targetCount > 0
-            && inventoryGame.GetItemCount(item.itemId) < item.targetCount);
+        return new PendingPurchaseResolver(pluginConfig, inventoryGame).HasPending();
     }
 
     private static bool HasValidPurchaseTargets(PluginConfig pluginConfig)

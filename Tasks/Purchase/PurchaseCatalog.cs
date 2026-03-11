@@ -10,12 +10,18 @@ public sealed unsafe class PurchaseCatalog
     private const uint ScripInclusionShopId = 3801094;
 
     private readonly List<PurchaseCatalogItem> items = [];
+    private readonly PurchaseCatalogSync? catalogSync;
 
     public bool isLoading { get; private set; }
     public IReadOnlyList<PurchaseCatalogItem> itemsView => items;
 
-    public PurchaseCatalog()
+    public PurchaseCatalog() : this(null)
     {
+    }
+
+    public PurchaseCatalog(PurchaseCatalogSync? catalogSync)
+    {
+        this.catalogSync = catalogSync;
         Reload();
     }
 
@@ -27,6 +33,7 @@ public sealed unsafe class PurchaseCatalog
         try
         {
             items.AddRange(BuildCatalog());
+            catalogSync?.Apply(items);
         }
         catch (Exception ex)
         {
@@ -37,13 +44,6 @@ public sealed unsafe class PurchaseCatalog
         {
             isLoading = false;
         }
-    }
-
-    public static PurchaseCatalogPage Resolve(PurchaseTarget purchaseTarget)
-    {
-        return new PurchaseCatalogPage(
-            purchaseTarget.page,
-            purchaseTarget.subPage);
     }
 
     private static List<PurchaseCatalogItem> BuildCatalog()
@@ -64,7 +64,7 @@ public sealed unsafe class PurchaseCatalog
             .GroupBy(row => row.RowId)
             .ToDictionary(group => group.Key, group => group.ToList());
 
-        var results = new List<PurchaseCatalogItem>();
+        var candidates = new List<CatalogCandidate>();
         var seen = new HashSet<uint>();
 
         for (var pageIndex = 0; pageIndex < shop.Category.Count; pageIndex++)
@@ -83,11 +83,11 @@ public sealed unsafe class PurchaseCatalog
                 if (specialShop == null)
                     continue;
 
-                var displayIndex = 0;
+                var seriesCandidates = new List<CatalogCandidate>();
                 for (var rawIndex = 0; rawIndex < specialShop.Value.Item.Count; rawIndex++)
                 {
                     var entry = specialShop.Value.Item[rawIndex];
-                    if (!TryGetEntryItemId(entry, out var itemId) || !seen.Add(itemId))
+                    if (!TryGetEntryItemId(entry, out var itemId))
                         continue;
 
                     var item = itemSheet.GetRow(itemId);
@@ -105,24 +105,47 @@ public sealed unsafe class PurchaseCatalog
                     var normalizedCurrency = NormalizeCurrency(rawCurrencyId, ResolveSpecialCurrencyItemId);
                     var currencyName = GetCurrencyName(itemSheet, normalizedCurrency.currencyItemId);
 
-                    results.Add(new PurchaseCatalogItem(
+                    seriesCandidates.Add(new CatalogCandidate(
                         itemId,
                         item.Name.ExtractText(),
                         itemCost,
-                        (pageIndex + 1).ToString(CultureInfo.InvariantCulture),
+                        pageIndex.ToString(CultureInfo.InvariantCulture),
                         (series.SubrowId + 1).ToString(CultureInfo.InvariantCulture),
                         normalizedCurrency.specialId,
                         normalizedCurrency.currencyItemId,
                         currencyName,
                         ResolveDiscipline(normalizedCurrency.specialId, currencyName),
-                        displayIndex));
+                        0,
+                        entry.PatchNumber,
+                        entry.Order,
+                        rawIndex));
+                }
 
-                    displayIndex++;
+                foreach (var (candidate, displayIndex) in seriesCandidates
+                             .OrderBy(candidate => candidate.sortOrder)
+                             .ThenBy(candidate => candidate.rawIndex)
+                             .Select((candidate, displayIndex) => (candidate, displayIndex)))
+                {
+                    if (!seen.Add(candidate.itemId))
+                        continue;
+
+                    candidates.Add(candidate with { index = displayIndex });
                 }
             }
         }
 
-        return results
+        return candidates
+            .Select(candidate => new PurchaseCatalogItem(
+                candidate.itemId,
+                candidate.itemName,
+                candidate.itemCost,
+                candidate.page,
+                candidate.subPage,
+                candidate.currencySpecialId,
+                candidate.currencyItemId,
+                candidate.currencyName,
+                candidate.discipline,
+                candidate.index))
             .OrderBy(item => int.TryParse(item.page, out var page) ? page : int.MaxValue)
             .ThenBy(item => int.TryParse(item.subPage, out var subPage) ? subPage : int.MaxValue)
             .ThenBy(item => item.index)
@@ -278,4 +301,17 @@ public readonly record struct PurchaseCatalogItem(
     PurchaseDiscipline discipline,
     int index);
 
-public readonly record struct PurchaseCatalogPage(string page, string subPage);
+internal readonly record struct CatalogCandidate(
+    uint itemId,
+    string itemName,
+    uint itemCost,
+    string page,
+    string subPage,
+    byte currencySpecialId,
+    uint currencyItemId,
+    string currencyName,
+    PurchaseDiscipline discipline,
+    int index,
+    ushort patchNumber,
+    byte sortOrder,
+    int rawIndex);

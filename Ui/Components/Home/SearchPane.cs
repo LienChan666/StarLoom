@@ -123,6 +123,7 @@ internal sealed class SearchPane
         {
             itemId = item.itemId,
             itemName = item.itemName,
+            index = item.index,
             targetCount = 1,
             scripCost = (int)item.itemCost,
             page = item.page,

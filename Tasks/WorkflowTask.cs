@@ -163,13 +163,16 @@ public sealed class WorkflowTask
             defaultReturnPoint = ReturnPointConfig.CreateInn(),
         };
 
+        var inventoryGame = new InventoryGame();
+        var pendingPurchaseResolver = new PendingPurchaseResolver(pluginConfig, inventoryGame);
+
         var workflowTask = new WorkflowTask(
             pluginConfig,
             new ArtisanTask(new NoOpArtisanIpc(), pluginConfig),
             new NavigationTask(new NoOpVNavmeshIpc(), new NoOpLifestreamIpc()),
-            new TurnInTask(new InventoryGame(), new NoOpCollectableShopGame(), new TurnInJobResolver()),
-            new PurchaseTask(pluginConfig, new InventoryGame(), new ScripShopGame()),
-            new InventoryGame(),
+            new TurnInTask(inventoryGame, new NoOpCollectableShopGame(), new TurnInJobResolver()),
+            new PurchaseTask(pluginConfig, inventoryGame, new NoOpNpcGame(), new NoOpScripShopGame(), pendingPurchaseResolver),
+            inventoryGame,
             new PlayerStateGame(),
             new LocationGame(),
             closeGameAction: () => { },
@@ -697,7 +700,7 @@ public sealed class WorkflowTask
     private void BeginPurchase()
     {
         if (!isTestMode)
-            purchaseTask.Start(currentScrips: 0);
+            purchaseTask.Start();
 
         workflowStage = WorkflowStage.Purchase;
     }
@@ -1125,5 +1128,21 @@ public sealed class WorkflowTask
         public override void SubmitItem() { }
         public override bool TryDismissOvercapDialog() => false;
         public override void CloseWindow() { }
+    }
+
+    private sealed class NoOpNpcGame : NpcGame
+    {
+        public override bool TryInteract(uint npcId, float maxDistance = 6f) => true;
+    }
+
+    private sealed class NoOpScripShopGame : ScripShopGame
+    {
+        public override bool IsReady() => true;
+        public override bool OpenShop() => true;
+        public override void SelectPage(string page) { }
+        public override void SelectSubPage(string subPage) { }
+        public override bool SelectItem(uint itemId, string itemName, int amount) => true;
+        public override PurchaseDialogResult ConfirmPurchase(uint itemId, string itemName) => PurchaseDialogResult.Confirmed;
+        public override void CloseShop() { }
     }
 }

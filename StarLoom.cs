@@ -32,11 +32,12 @@ public sealed class StarLoom : IDalamudPlugin
         var scripShopGame = new ScripShopGame();
         var playerStateGame = new PlayerStateGame();
         var locationGame = new LocationGame();
-        var purchaseCatalog = new PurchaseCatalog();
+        var pendingPurchaseResolver = new PendingPurchaseResolver(pluginConfig, inventoryGame);
+        var purchaseCatalog = new PurchaseCatalog(new PurchaseCatalogSync(pluginConfig, configStore.Save));
         var artisanTask = new ArtisanTask(new ArtisanIpc(), pluginConfig);
         var navigationTask = new NavigationTask(new VNavmeshIpc(), new LifestreamIpc());
         var turnInTask = new TurnInTask(inventoryGame, collectableShopGame, new TurnInJobResolver());
-        var purchaseTask = new PurchaseTask(pluginConfig, inventoryGame, scripShopGame);
+        var purchaseTask = new PurchaseTask(pluginConfig, inventoryGame, npcGame, scripShopGame, pendingPurchaseResolver);
 
         workflowTask = new WorkflowTask(
             pluginConfig,
