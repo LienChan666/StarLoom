@@ -260,6 +260,65 @@ public sealed class WorkflowTaskTests
         Assert.Equal("ClosingGame", workflowTask.currentStage);
     }
 
+    [Fact]
+    public void ConfiguredWorkflow_Should_Complete_Full_Loop_And_Return_To_Idle_After_Return_Completes()
+    {
+        var config = CreateConfig();
+        config.postPurchaseAction = PostPurchaseAction.ReturnToConfiguredPoint;
+        var workflowTask = WorkflowTask.CreateForTests(config);
+
+        DriveConfiguredWorkflowToPurchase(workflowTask);
+
+        workflowTask.SetTestPurchaseState(isCompleted: true);
+        workflowTask.Update();
+        Assert.Equal("Returning", workflowTask.currentStage);
+
+        workflowTask.SetTestReturnState(isCompleted: true);
+        workflowTask.Update();
+
+        Assert.Equal("Idle", workflowTask.currentStage);
+        Assert.False(workflowTask.isBusy);
+        Assert.Equal("state.orchestrator.idle", workflowTask.GetStateKey());
+    }
+
+    [Fact]
+    public void TurnInOnly_Should_Finalize_To_Idle_After_TurnIn_Completes()
+    {
+        var workflowTask = WorkflowTask.CreateForTests(CreateConfig());
+        workflowTask.SetTestUseNavigation(false);
+
+        workflowTask.StartTurnInOnly();
+        Assert.Equal("TurnIn", workflowTask.currentStage);
+
+        workflowTask.SetTestTurnInState(isCompleted: true);
+        workflowTask.Update();
+
+        Assert.Equal("Idle", workflowTask.currentStage);
+        Assert.False(workflowTask.isBusy);
+    }
+
+    [Fact]
+    public void PurchaseOnly_Should_Finalize_To_Idle_After_Return_Completes()
+    {
+        var config = CreateConfig();
+        config.postPurchaseAction = PostPurchaseAction.ReturnToConfiguredPoint;
+        var workflowTask = WorkflowTask.CreateForTests(config);
+        workflowTask.SetTestUseNavigation(false);
+
+        workflowTask.StartPurchaseOnly();
+        Assert.Equal("Purchase", workflowTask.currentStage);
+
+        workflowTask.SetTestPurchaseState(isCompleted: true);
+        workflowTask.Update();
+        Assert.Equal("Returning", workflowTask.currentStage);
+
+        workflowTask.SetTestReturnState(isCompleted: true);
+        workflowTask.Update();
+
+        Assert.Equal("Idle", workflowTask.currentStage);
+        Assert.False(workflowTask.isBusy);
+    }
+
     private static void DriveConfiguredWorkflowToPurchase(WorkflowTask workflowTask)
     {
         workflowTask.SetTestLocation(isInsideHouse: true, isInsideInn: false);

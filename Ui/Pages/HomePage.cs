@@ -23,7 +23,7 @@ public readonly record struct HomePageState(
             canStartTurnInOnly: !isBusy,
             canStartPurchaseOnly: !isBusy && hasConfiguredPurchases,
             canStop: isBusy,
-            showPurchaseRequirementHint: !hasConfiguredPurchases);
+            showPurchaseRequirementHint: !isBusy && !hasConfiguredPurchases);
     }
 }
 

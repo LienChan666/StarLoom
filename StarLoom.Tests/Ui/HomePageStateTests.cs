@@ -20,4 +20,12 @@ public sealed class HomePageStateTests
 
         Assert.True(state.showPurchaseRequirementHint);
     }
+
+    [Fact]
+    public void Purchase_Hint_Should_Hide_When_Workflow_Is_Busy()
+    {
+        var state = HomePageState.FromWorkflow(isBusy: true, hasConfiguredPurchases: false);
+
+        Assert.False(state.showPurchaseRequirementHint);
+    }
 }
