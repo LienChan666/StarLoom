@@ -1,0 +1,103 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <Version>0.1.0.0</Version>
+    <AssemblyVersion>$(Version)</AssemblyVersion>
+    <FileVersion>$(Version)</FileVersion>
+    <Description>Automation companion for FFXIV crafting workflows.</Description>
+  </PropertyGroup>
+
+  <PropertyGroup>
+    <DalamudLibPath Condition="'$(DalamudLibPath)' == '' and Exists('$(AppData)\XIVLauncherCN\addon\Hooks\dev\Dalamud.dll')">$(AppData)\XIVLauncherCN\addon\Hooks\dev\</DalamudLibPath>
+    <DalamudLibPath Condition="'$(DalamudLibPath)' == '' and Exists('$(AppData)\XIVLauncher\addon\Hooks\dev\Dalamud.dll')">$(AppData)\XIVLauncher\addon\Hooks\dev\</DalamudLibPath>
+    <DalamudDevPlugins Condition="'$(DalamudDevPlugins)' == '' and Exists('$(AppData)\XIVLauncherCN\addon\Hooks\dev\Dalamud.dll')">$(AppData)\XIVLauncherCN\devPlugins\StarLoom\</DalamudDevPlugins>
+    <DalamudDevPlugins Condition="'$(DalamudDevPlugins)' == ''">$(AppData)\XIVLauncher\devPlugins\StarLoom\</DalamudDevPlugins>
+    <AssemblyName>StarLoom</AssemblyName>
+    <RootNamespace>StarLoom</RootNamespace>
+    <PackageId>StarLoom</PackageId>
+    <Product>StarLoom</Product>
+    <Author>YLC</Author>
+    <Authors>YLC</Authors>
+  </PropertyGroup>
+
+  <PropertyGroup>
+    <TargetFramework>net10.0-windows7.0</TargetFramework>
+    <Platforms>x64</Platforms>
+    <Nullable>enable</Nullable>
+    <LangVersion>preview</LangVersion>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <ProduceReferenceAssembly>false</ProduceReferenceAssembly>
+    <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
+    <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
+    <OutputPath>bin/$(Configuration)</OutputPath>
+    <NoWarn>CS1591</NoWarn>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Remove="_temp\**\*.cs" />
+    <Compile Remove="StarLoom.Tests\**\*.cs" />
+    <EmbeddedResource Remove="_temp\**\*" />
+    <EmbeddedResource Remove="StarLoom.Tests\**\*" />
+    <None Remove="_temp\**\*" />
+    <None Remove="StarLoom.Tests\**\*" />
+    <Content Remove="_temp\**\*" />
+    <Content Remove="StarLoom.Tests\**\*" />
+
+    <None Update="StarLoom.json">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <None Update="Resources\Localization\*.json">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="DalamudPackager" Version="14.0.2" />
+    <PackageReference Include="ECommons" Version="3.1.0.10" />
+    <Reference Include="Dalamud">
+      <HintPath>$(DalamudLibPath)\Dalamud.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="Newtonsoft.Json">
+      <HintPath>$(DalamudLibPath)\Newtonsoft.Json.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="FFXIVClientStructs">
+      <HintPath>$(DalamudLibPath)\FFXIVClientStructs.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="Dalamud.Bindings.ImGui">
+      <HintPath>$(DalamudLibPath)\Dalamud.Bindings.ImGui.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="Lumina">
+      <HintPath>$(DalamudLibPath)\Lumina.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="Lumina.Excel">
+      <HintPath>$(DalamudLibPath)\Lumina.Excel.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="Dalamud.Common">
+      <HintPath>$(DalamudLibPath)\Dalamud.Common.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="InteropGenerator.Runtime">
+      <HintPath>$(DalamudLibPath)\InteropGenerator.Runtime.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+  </ItemGroup>
+
+  <Target Name="CopyDebugPluginToDalamudDevPlugins"
+          AfterTargets="Build"
+          Condition="'$(Configuration)' == 'Debug' and '$(DalamudDevPlugins)' != ''">
+    <ItemGroup>
+      <DalamudPluginOutput Include="$(OutputPath)**\*" />
+    </ItemGroup>
+
+    <MakeDir Directories="$(DalamudDevPlugins)" />
+    <Copy SourceFiles="@(DalamudPluginOutput)"
+          DestinationFiles="@(DalamudPluginOutput->'$(DalamudDevPlugins)%(RecursiveDir)%(Filename)%(Extension)')"
+          SkipUnchangedFiles="true" />
+  </Target>
+</Project>
