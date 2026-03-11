@@ -199,7 +199,7 @@ internal sealed class WorkflowOrchestrator : IDisposable
 
     private void HandleLoopingTurnInAndPurchase()
     {
-        if (ShouldFinalizeConfiguredWorkflow())
+        if (ShouldFinalizeLoopAfterTurnInAndPurchase())
         {
             FinalizeConfiguredWorkflow();
             return;
@@ -253,6 +253,11 @@ internal sealed class WorkflowOrchestrator : IDisposable
     private static bool HasPendingPurchaseWorkRemaining()
     {
         return P.PurchaseResolver.HasPending();
+    }
+
+    private static bool ShouldFinalizeLoopAfterTurnInAndPurchase()
+    {
+        return !HasPendingPurchaseWorkRemaining();
     }
 
     private static bool ShouldFinalizeConfiguredWorkflow()

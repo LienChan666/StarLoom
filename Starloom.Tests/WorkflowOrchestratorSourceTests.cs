@@ -182,6 +182,20 @@ public sealed class WorkflowOrchestratorSourceTests
     }
 
     [Fact]
+    public void WorkflowOrchestrator_Must_Not_Treat_Stopped_Artisan_As_Final_Completion_After_TurnIn_Loop()
+    {
+        var source = ReadSource(Path.Combine("Automation", "WorkflowOrchestrator.cs"));
+        var loopHandlerSource = ReadMethodBody(source, "private void HandleLoopingTurnInAndPurchase()")!;
+        var loopFinalizeSource = ReadMethodBody(source, "private static bool ShouldFinalizeLoopAfterTurnInAndPurchase()")!;
+
+        Assert.Contains("ShouldFinalizeLoopAfterTurnInAndPurchase()", loopHandlerSource);
+        Assert.DoesNotContain("ShouldFinalizeConfiguredWorkflow()", loopHandlerSource);
+        Assert.Contains("!HasPendingPurchaseWorkRemaining()", loopFinalizeSource);
+        Assert.DoesNotContain("P.Artisan.IsListRunning()", loopFinalizeSource);
+        Assert.Contains("ResumeCraftingForNextCycle();", loopHandlerSource);
+    }
+
+    [Fact]
     public void ConfiguredWorkflow_Must_Use_Free_Slot_Threshold_Before_Taking_Over_Artisan()
     {
         var source = ReadSource(Path.Combine("Automation", "WorkflowOrchestrator.cs"));
