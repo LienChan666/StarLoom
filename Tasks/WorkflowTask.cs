@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Numerics;
 using StarLoom.Config;
 using StarLoom.Game;
@@ -5,6 +6,7 @@ using StarLoom.Ipc;
 using StarLoom.Tasks.Artisan;
 using StarLoom.Tasks.Navigation;
 using StarLoom.Tasks.Purchase;
+using StarLoom.Tasks.Return;
 using StarLoom.Tasks.TurnIn;
 
 namespace StarLoom.Tasks;
@@ -30,17 +32,20 @@ public sealed class WorkflowTask
         NavigatingToPurchase,
         Purchase,
         Returning,
+        ClosingGame,
         Failed,
     }
 
     private readonly PluginConfig pluginConfig;
     private readonly ArtisanTask artisanTask;
     private readonly NavigationTask navigationTask;
+    private readonly ReturnTask returnTask;
     private readonly TurnInTask turnInTask;
     private readonly PurchaseTask purchaseTask;
     private readonly InventoryGame inventoryGame;
     private readonly PlayerStateGame playerStateGame;
     private readonly LocationGame locationGame;
+    private readonly Action closeGameAction;
     private readonly Func<DateTime> getUtcNow;
     private readonly TimeSpan pauseAcknowledgementTimeout;
     private readonly TimeSpan artisanIdleTimeout;
@@ -69,6 +74,8 @@ public sealed class WorkflowTask
     private bool testTurnInFailed;
     private bool testPurchaseCompleted;
     private bool testPurchaseFailed;
+    private bool testReturnCompleted;
+    private bool testReturnFailed;
     private bool testStartConfiguredListSucceeded = true;
     private string? testControlErrorMessage;
     private DateTime pauseGateEnteredAt = DateTime.MinValue;
@@ -86,6 +93,7 @@ public sealed class WorkflowTask
         WorkflowStage.NavigatingToPurchase => "NavigatingToPurchase",
         WorkflowStage.Purchase => "Purchase",
         WorkflowStage.Returning => "Returning",
+        WorkflowStage.ClosingGame => "ClosingGame",
         WorkflowStage.Failed => "Failed",
         _ => "Idle",
     };
@@ -93,7 +101,9 @@ public sealed class WorkflowTask
     public bool isBusy => workflowStage is not WorkflowStage.Idle;
     public bool lastPauseRequested { get; private set; }
     public bool lastResumeRequested { get; private set; }
+    public bool closeGameRequested { get; private set; }
     public string? lastErrorMessage { get; private set; }
+    public NavigationRequest? lastNavigationRequest { get; private set; }
 
     public WorkflowTask()
         : this(
@@ -117,6 +127,8 @@ public sealed class WorkflowTask
         InventoryGame inventoryGame,
         PlayerStateGame playerStateGame,
         LocationGame locationGame,
+        ReturnTask? returnTask = null,
+        Action? closeGameAction = null,
         Func<DateTime>? getUtcNow = null,
         TimeSpan? pauseAcknowledgementTimeout = null,
         TimeSpan? artisanIdleTimeout = null,
@@ -130,6 +142,8 @@ public sealed class WorkflowTask
         this.inventoryGame = inventoryGame;
         this.playerStateGame = playerStateGame;
         this.locationGame = locationGame;
+        this.returnTask = returnTask ?? new ReturnTask(navigationTask, new LifestreamIpc());
+        this.closeGameAction = closeGameAction ?? (() => Process.GetCurrentProcess().Kill());
         this.getUtcNow = getUtcNow ?? (() => DateTime.UtcNow);
         this.pauseAcknowledgementTimeout = pauseAcknowledgementTimeout ?? TimeSpan.FromSeconds(5);
         this.artisanIdleTimeout = artisanIdleTimeout ?? TimeSpan.FromSeconds(15);
@@ -158,6 +172,7 @@ public sealed class WorkflowTask
             new InventoryGame(),
             new PlayerStateGame(),
             new LocationGame(),
+            closeGameAction: () => { },
             getUtcNow: () => DateTime.UnixEpoch,
             localActionReadyStableDuration: TimeSpan.Zero);
 
@@ -201,6 +216,12 @@ public sealed class WorkflowTask
             return;
         }
 
+        if (ShouldUseNavigation())
+        {
+            BeginNavigationToTurnIn();
+            return;
+        }
+
         BeginTurnIn();
     }
 
@@ -217,6 +238,12 @@ public sealed class WorkflowTask
             return;
         }
 
+        if (ShouldUseNavigation())
+        {
+            BeginNavigationToPurchase();
+            return;
+        }
+
         BeginPurchase();
     }
 
@@ -229,7 +256,9 @@ public sealed class WorkflowTask
         pendingConfiguredWorkflowStartAfterReturn = false;
         lastPauseRequested = false;
         lastResumeRequested = false;
+        closeGameRequested = false;
         lastErrorMessage = null;
+        lastNavigationRequest = null;
         pauseGateEnteredAt = DateTime.MinValue;
         idleWaitEnteredAt = DateTime.MinValue;
         localActionReadyAt = null;
@@ -286,6 +315,7 @@ public sealed class WorkflowTask
             WorkflowStage.NavigatingToPurchase => "state.orchestrator.running",
             WorkflowStage.Purchase => "state.orchestrator.running",
             WorkflowStage.Returning => "state.orchestrator.running",
+            WorkflowStage.ClosingGame => "state.orchestrator.running",
             WorkflowStage.Failed => "state.orchestrator.running",
             _ => "state.orchestrator.idle",
         };
@@ -365,6 +395,13 @@ public sealed class WorkflowTask
         testNavigationFailed = hasFailed;
     }
 
+    public void SetTestReturnState(bool isCompleted, bool hasFailed = false)
+    {
+        isTestMode = true;
+        testReturnCompleted = isCompleted;
+        testReturnFailed = hasFailed;
+    }
+
     public void SetTestControl(bool canControl, string errorMessage)
     {
         isTestMode = true;
@@ -379,7 +416,9 @@ public sealed class WorkflowTask
         pendingConfiguredWorkflowStartAfterReturn = false;
         lastPauseRequested = false;
         lastResumeRequested = false;
+        closeGameRequested = false;
         lastErrorMessage = null;
+        lastNavigationRequest = null;
         pauseGateEnteredAt = DateTime.MinValue;
         idleWaitEnteredAt = DateTime.MinValue;
         localActionReadyAt = null;
@@ -417,7 +456,7 @@ public sealed class WorkflowTask
 
         if (ShouldFinalizeConfiguredWorkflow())
         {
-            FinalizeConfiguredWorkflow();
+            DispatchFinalCompletion();
             return;
         }
 
@@ -537,7 +576,7 @@ public sealed class WorkflowTask
                 return;
             }
 
-            FinalizeConfiguredWorkflow();
+            DispatchFinalCompletion();
             return;
         }
 
@@ -574,9 +613,9 @@ public sealed class WorkflowTask
 
         ConsumePurchaseState();
 
-        if (workflowMode == WorkflowMode.ConfiguredWorkflow)
+        if (workflowMode is WorkflowMode.ConfiguredWorkflow or WorkflowMode.PurchaseOnly)
         {
-            FinalizeConfiguredWorkflow();
+            DispatchFinalCompletion();
             return;
         }
 
@@ -585,17 +624,17 @@ public sealed class WorkflowTask
 
     private void HandleReturning()
     {
-        if (HasNavigationFailed())
+        if (HasReturnFailed())
         {
-            Fail(GetNavigationErrorMessage());
-            ConsumeNavigationState();
+            Fail(GetReturnErrorMessage());
+            ConsumeReturnState();
             return;
         }
 
-        if (!HasNavigationCompleted())
+        if (!HasReturnCompleted())
             return;
 
-        ConsumeNavigationState();
+        ConsumeReturnState();
 
         if (pendingConfiguredWorkflowStartAfterReturn)
         {
@@ -611,7 +650,7 @@ public sealed class WorkflowTask
             return;
         }
 
-        CompleteStandaloneWorkflow();
+        CompletePostActionWorkflow();
     }
 
     private void EnterPauseGate()
@@ -629,8 +668,10 @@ public sealed class WorkflowTask
 
     private void BeginNavigationToTurnIn()
     {
+        lastNavigationRequest = BuildTurnInNavigationRequest();
+
         if (!isTestMode)
-            navigationTask.Start(BuildNavigationRequest("collectable", pluginConfig.preferredCollectableShop?.territoryId ?? 0));
+            navigationTask.Start(lastNavigationRequest.Value);
 
         workflowStage = WorkflowStage.NavigatingToTurnIn;
     }
@@ -645,8 +686,10 @@ public sealed class WorkflowTask
 
     private void BeginNavigationToPurchase()
     {
+        lastNavigationRequest = BuildPurchaseNavigationRequest();
+
         if (!isTestMode)
-            navigationTask.Start(BuildNavigationRequest("purchase", pluginConfig.preferredCollectableShop?.territoryId ?? 0));
+            navigationTask.Start(lastNavigationRequest.Value);
 
         workflowStage = WorkflowStage.NavigatingToPurchase;
     }
@@ -661,18 +704,43 @@ public sealed class WorkflowTask
 
     private void BeginReturn()
     {
+        if (pluginConfig.defaultReturnPoint == null)
+        {
+            Fail("A return point must be configured before continuing.");
+            return;
+        }
+
         if (!isTestMode)
-            navigationTask.Start(BuildNavigationRequest("return", pluginConfig.defaultReturnPoint?.territoryId ?? 0));
+        {
+            returnTask.Start(pluginConfig.defaultReturnPoint);
+            if (returnTask.hasFailed)
+            {
+                Fail(returnTask.errorMessage ?? "Return task failed.");
+                return;
+            }
+        }
 
         workflowStage = WorkflowStage.Returning;
     }
 
-    private void RequestArtisanResume()
+    private void BeginCloseGame()
     {
-        lastResumeRequested = true;
+        closeGameRequested = true;
+        workflowStage = WorkflowStage.ClosingGame;
 
         if (!isTestMode)
-            artisanTask.Resume();
+            closeGameAction();
+    }
+
+    private void DispatchFinalCompletion()
+    {
+        if (pluginConfig.postPurchaseAction == PostPurchaseAction.CloseGame)
+        {
+            BeginCloseGame();
+            return;
+        }
+
+        BeginReturn();
     }
 
     private bool CanStartPurchase(out string errorMessage)
@@ -881,6 +949,32 @@ public sealed class WorkflowTask
         return purchaseTask.hasFailed;
     }
 
+    private bool HasReturnCompleted()
+    {
+        if (isTestMode)
+            return testReturnCompleted;
+
+        returnTask.Update();
+        return returnTask.isCompleted;
+    }
+
+    private bool HasReturnFailed()
+    {
+        if (isTestMode)
+            return testReturnFailed;
+
+        returnTask.Update();
+        return returnTask.hasFailed;
+    }
+
+    private string GetReturnErrorMessage()
+    {
+        if (isTestMode)
+            return "Return task failed.";
+
+        return returnTask.errorMessage ?? "Return task failed.";
+    }
+
     private void ConsumeNavigationState()
     {
         testNavigationCompleted = false;
@@ -899,13 +993,19 @@ public sealed class WorkflowTask
         testPurchaseFailed = false;
     }
 
-    private void FinalizeConfiguredWorkflow()
+    private void ConsumeReturnState()
+    {
+        testReturnCompleted = false;
+        testReturnFailed = false;
+    }
+
+    private void CompletePostActionWorkflow()
     {
         AbortRuntime(stopArtisan: false);
         artisanListManaged = false;
-        pendingConfiguredWorkflowStartAfterReturn = false;
         workflowMode = WorkflowMode.None;
         workflowStage = WorkflowStage.Idle;
+        pendingConfiguredWorkflowStartAfterReturn = false;
         localActionReadyAt = null;
         pauseGateEnteredAt = DateTime.MinValue;
         idleWaitEnteredAt = DateTime.MinValue;
@@ -924,6 +1024,7 @@ public sealed class WorkflowTask
 
     private void AbortRuntime(bool stopArtisan)
     {
+        returnTask.Stop();
         navigationTask.Stop();
         turnInTask.Stop();
         purchaseTask.Stop();
@@ -946,9 +1047,34 @@ public sealed class WorkflowTask
         TryDuoLogError(errorMessage);
     }
 
-    private static NavigationRequest BuildNavigationRequest(string reason, uint territoryId)
+    private NavigationRequest BuildTurnInNavigationRequest()
     {
-        return new NavigationRequest(Vector3.Zero, territoryId, reason);
+        var shop = pluginConfig.preferredCollectableShop
+            ?? throw new InvalidOperationException("A collectable shop must be configured before starting.");
+
+        return new NavigationRequest(
+            shop.location,
+            shop.territoryId,
+            "collectable",
+            shop.aetheryteId,
+            2f,
+            shop.isLifestreamRequired,
+            shop.lifestreamCommand);
+    }
+
+    private NavigationRequest BuildPurchaseNavigationRequest()
+    {
+        var shop = pluginConfig.preferredCollectableShop
+            ?? throw new InvalidOperationException("A collectable shop must be configured before starting.");
+
+        return new NavigationRequest(
+            shop.scripShopLocation,
+            shop.territoryId,
+            "purchase",
+            shop.aetheryteId,
+            0.4f,
+            shop.isLifestreamRequired,
+            shop.lifestreamCommand);
     }
 
     private static void TryDuoLogError(string message)

@@ -1,12 +1,16 @@
 using Dalamud.Game.ClientState.Conditions;
 using Dalamud.Game.ClientState.Objects.Enums;
 using Dalamud.Game.ClientState.Objects.Types;
+using ECommons.UIHelpers.AddonMasterImplementations;
 using ECommons.ExcelServices.TerritoryEnumeration;
 using FFXIVClientStructs.FFXIV.Client.Game;
 using FFXIVClientStructs.FFXIV.Client.Game.UI;
+using FFXIVClientStructs.FFXIV.Client.UI;
 using Lumina.Excel.Sheets;
 using StarLoom.Config;
+using StarLoom.Ipc;
 using System.Numerics;
+using static ECommons.GenericHelpers;
 
 namespace StarLoom.Game;
 
@@ -102,6 +106,23 @@ public static unsafe class ReturnPointGame
             && entrance != null;
     }
 
+    public static bool TryTeleportToReturnPoint(ReturnPointConfig point, ILifestreamIpc lifestreamIpc)
+    {
+        if (point.isInn)
+        {
+            if (!lifestreamIpc.IsAvailable())
+                return false;
+
+            lifestreamIpc.EnqueueInnShortcut();
+            return true;
+        }
+
+        if (CanEnterDirectlyFromCurrentLocation(point))
+            return true;
+
+        return LocationGame.TeleportToAetheryte(point.aetheryteId, point.subIndex);
+    }
+
     public static bool IsInsideHouse()
     {
         var housingManager = HousingManager.Instance();
@@ -122,6 +143,34 @@ public static unsafe class ReturnPointGame
             .FirstOrDefault();
 
         return entrance != null;
+    }
+
+    public static bool TryConfirmEntry(bool isApartment)
+    {
+        if (isApartment)
+        {
+            if (TryGetAddonByName<AddonSelectString>("SelectString", out var selectStringAddon)
+                && IsAddonReady(&selectStringAddon->AtkUnitBase))
+            {
+                var selectString = new AddonMaster.SelectString((nint)selectStringAddon);
+                if (selectString.EntryCount > 0)
+                {
+                    selectString.Entries[0].Select();
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        if (TryGetAddonByName<AddonSelectYesno>("SelectYesno", out var yesnoAddon)
+            && IsAddonReady(&yesnoAddon->AtkUnitBase))
+        {
+            new AddonMaster.SelectYesno((nint)yesnoAddon).Yes();
+            return true;
+        }
+
+        return false;
     }
 
     private static string BuildDisplayName(uint aetheryteId, bool isApartment)
