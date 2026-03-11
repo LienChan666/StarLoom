@@ -1,5 +1,6 @@
 using System.Numerics;
 using StarLoom.Config;
+using StarLoom.Game;
 using StarLoom.Ipc;
 using StarLoom.Tasks.Artisan;
 using StarLoom.Tasks.Navigation;
@@ -22,6 +23,8 @@ public sealed class WorkflowTask
     {
         Idle,
         MonitoringArtisan,
+        WaitingForPause,
+        WaitingForIdle,
         NavigatingToTurnIn,
         TurnIn,
         NavigatingToPurchase,
@@ -35,15 +38,30 @@ public sealed class WorkflowTask
     private readonly NavigationTask navigationTask;
     private readonly TurnInTask turnInTask;
     private readonly PurchaseTask purchaseTask;
+    private readonly InventoryGame inventoryGame;
+    private readonly PlayerStateGame playerStateGame;
+    private readonly LocationGame locationGame;
+    private readonly Func<DateTime> getUtcNow;
+    private readonly TimeSpan pauseAcknowledgementTimeout;
+    private readonly TimeSpan artisanIdleTimeout;
+    private readonly TimeSpan localActionReadyStableDuration;
 
     private WorkflowMode workflowMode;
     private WorkflowStage workflowStage;
+    private bool artisanListManaged;
+    private bool pendingConfiguredWorkflowStartAfterReturn;
     private bool isTestMode;
     private bool testCanControl = true;
-    private bool testIsBusy;
-    private bool testShouldTakeOver;
+    private bool testArtisanAvailable = true;
+    private bool testArtisanListRunning = true;
+    private bool testArtisanBusy = true;
     private bool testArtisanPaused;
-    private bool testHasConfiguredPurchases = true;
+    private bool testHasPendingPurchaseWork = true;
+    private bool testHasCollectableTurnIns;
+    private int testFreeSlotCount = int.MaxValue;
+    private bool testIsInsideHouse = true;
+    private bool testIsInsideInn;
+    private bool testLocalPlayerReady = true;
     private bool testUseNavigation;
     private bool testNavigationCompleted;
     private bool testNavigationFailed;
@@ -51,12 +69,18 @@ public sealed class WorkflowTask
     private bool testTurnInFailed;
     private bool testPurchaseCompleted;
     private bool testPurchaseFailed;
+    private bool testStartConfiguredListSucceeded = true;
     private string? testControlErrorMessage;
+    private DateTime pauseGateEnteredAt = DateTime.MinValue;
+    private DateTime idleWaitEnteredAt = DateTime.MinValue;
+    private DateTime? localActionReadyAt;
 
     public string currentStage => workflowStage switch
     {
         WorkflowStage.Idle => "Idle",
         WorkflowStage.MonitoringArtisan => "MonitoringArtisan",
+        WorkflowStage.WaitingForPause => "WaitingForPause",
+        WorkflowStage.WaitingForIdle => "WaitingForIdle",
         WorkflowStage.NavigatingToTurnIn => "NavigatingToTurnIn",
         WorkflowStage.TurnIn => "TurnIn",
         WorkflowStage.NavigatingToPurchase => "NavigatingToPurchase",
@@ -67,15 +91,20 @@ public sealed class WorkflowTask
     };
 
     public bool isBusy => workflowStage is not WorkflowStage.Idle;
+    public bool lastPauseRequested { get; private set; }
     public bool lastResumeRequested { get; private set; }
     public string? lastErrorMessage { get; private set; }
 
-    public WorkflowTask() : this(
-        new PluginConfig(),
-        new ArtisanTask(new ArtisanIpc(), new PluginConfig()),
-        new NavigationTask(new VNavmeshIpc(), new LifestreamIpc()),
-        new TurnInTask(),
-        new PurchaseTask())
+    public WorkflowTask()
+        : this(
+            new PluginConfig(),
+            new ArtisanTask(new ArtisanIpc(), new PluginConfig()),
+            new NavigationTask(new VNavmeshIpc(), new LifestreamIpc()),
+            new TurnInTask(),
+            new PurchaseTask(),
+            new InventoryGame(),
+            new PlayerStateGame(),
+            new LocationGame())
     {
     }
 
@@ -84,18 +113,32 @@ public sealed class WorkflowTask
         ArtisanTask artisanTask,
         NavigationTask navigationTask,
         TurnInTask turnInTask,
-        PurchaseTask purchaseTask)
+        PurchaseTask purchaseTask,
+        InventoryGame inventoryGame,
+        PlayerStateGame playerStateGame,
+        LocationGame locationGame,
+        Func<DateTime>? getUtcNow = null,
+        TimeSpan? pauseAcknowledgementTimeout = null,
+        TimeSpan? artisanIdleTimeout = null,
+        TimeSpan? localActionReadyStableDuration = null)
     {
         this.pluginConfig = pluginConfig;
         this.artisanTask = artisanTask;
         this.navigationTask = navigationTask;
         this.turnInTask = turnInTask;
         this.purchaseTask = purchaseTask;
+        this.inventoryGame = inventoryGame;
+        this.playerStateGame = playerStateGame;
+        this.locationGame = locationGame;
+        this.getUtcNow = getUtcNow ?? (() => DateTime.UtcNow);
+        this.pauseAcknowledgementTimeout = pauseAcknowledgementTimeout ?? TimeSpan.FromSeconds(5);
+        this.artisanIdleTimeout = artisanIdleTimeout ?? TimeSpan.FromSeconds(15);
+        this.localActionReadyStableDuration = localActionReadyStableDuration ?? TimeSpan.FromMilliseconds(500);
     }
 
-    public static WorkflowTask CreateForTests()
+    public static WorkflowTask CreateForTests(PluginConfig? pluginConfig = null)
     {
-        var pluginConfig = new PluginConfig
+        pluginConfig ??= new PluginConfig
         {
             artisanListId = 7,
             preferredCollectableShop = new CollectableShopConfig
@@ -111,9 +154,20 @@ public sealed class WorkflowTask
             new ArtisanTask(new NoOpArtisanIpc(), pluginConfig),
             new NavigationTask(new NoOpVNavmeshIpc(), new NoOpLifestreamIpc()),
             new TurnInTask(),
-            new PurchaseTask(pluginConfig, new Game.InventoryGame(), new Game.ScripShopGame()));
+            new PurchaseTask(pluginConfig, new InventoryGame(), new ScripShopGame()),
+            new InventoryGame(),
+            new PlayerStateGame(),
+            new LocationGame(),
+            getUtcNow: () => DateTime.UnixEpoch,
+            localActionReadyStableDuration: TimeSpan.Zero);
 
         workflowTask.isTestMode = true;
+        workflowTask.testArtisanAvailable = true;
+        workflowTask.testArtisanListRunning = false;
+        workflowTask.testArtisanBusy = false;
+        workflowTask.testArtisanPaused = false;
+        workflowTask.testIsInsideHouse = true;
+        workflowTask.testIsInsideInn = false;
         return workflowTask;
     }
 
@@ -122,23 +176,16 @@ public sealed class WorkflowTask
         if (isBusy)
             return;
 
-        workflowMode = WorkflowMode.ConfiguredWorkflow;
-        lastResumeRequested = false;
-        lastErrorMessage = null;
+        BeginWorkflow(WorkflowMode.ConfiguredWorkflow);
 
-        if (!CanControlArtisan(out var errorMessage))
+        if (!IsInsideStartLocation())
         {
-            Fail(errorMessage);
+            pendingConfiguredWorkflowStartAfterReturn = true;
+            BeginReturn();
             return;
         }
 
-        if (!isTestMode && !artisanTask.StartConfiguredList())
-        {
-            Fail("Failed to start configured Artisan list.");
-            return;
-        }
-
-        workflowStage = WorkflowStage.MonitoringArtisan;
+        StartConfiguredWorkflowCore();
     }
 
     public void StartTurnInOnly()
@@ -146,9 +193,14 @@ public sealed class WorkflowTask
         if (isBusy)
             return;
 
-        workflowMode = WorkflowMode.TurnInOnly;
-        lastResumeRequested = false;
-        lastErrorMessage = null;
+        BeginWorkflow(WorkflowMode.TurnInOnly);
+
+        if (!WorkflowStartValidator.CanStartCollectable(pluginConfig, out var errorMessage))
+        {
+            Fail(errorMessage);
+            return;
+        }
+
         BeginTurnIn();
     }
 
@@ -157,22 +209,30 @@ public sealed class WorkflowTask
         if (isBusy)
             return;
 
-        workflowMode = WorkflowMode.PurchaseOnly;
-        lastResumeRequested = false;
-        lastErrorMessage = null;
+        BeginWorkflow(WorkflowMode.PurchaseOnly);
+
+        if (!CanStartPurchase(out var errorMessage))
+        {
+            Fail(errorMessage);
+            return;
+        }
+
         BeginPurchase();
     }
 
     public void Stop()
     {
-        artisanTask.Stop();
-        navigationTask.Stop();
-        turnInTask.Stop();
-        purchaseTask.Stop();
+        AbortRuntime(stopArtisan: true);
         workflowMode = WorkflowMode.None;
         workflowStage = WorkflowStage.Idle;
+        artisanListManaged = false;
+        pendingConfiguredWorkflowStartAfterReturn = false;
+        lastPauseRequested = false;
         lastResumeRequested = false;
         lastErrorMessage = null;
+        pauseGateEnteredAt = DateTime.MinValue;
+        idleWaitEnteredAt = DateTime.MinValue;
+        localActionReadyAt = null;
     }
 
     public void Update()
@@ -181,6 +241,12 @@ public sealed class WorkflowTask
         {
             case WorkflowStage.MonitoringArtisan:
                 HandleMonitoringArtisan();
+                return;
+            case WorkflowStage.WaitingForPause:
+                HandleWaitingForPause();
+                return;
+            case WorkflowStage.WaitingForIdle:
+                HandleWaitingForIdle();
                 return;
             case WorkflowStage.NavigatingToTurnIn:
                 HandleNavigatingToTurnIn();
@@ -212,13 +278,15 @@ public sealed class WorkflowTask
         return workflowStage switch
         {
             WorkflowStage.Idle => "state.orchestrator.idle",
+            WorkflowStage.WaitingForPause => "state.orchestrator.waiting_pause",
+            WorkflowStage.WaitingForIdle => "state.orchestrator.waiting_idle",
             WorkflowStage.MonitoringArtisan => "state.session.monitoring",
             WorkflowStage.NavigatingToTurnIn => "state.orchestrator.running",
             WorkflowStage.TurnIn => "state.orchestrator.running",
             WorkflowStage.NavigatingToPurchase => "state.orchestrator.running",
             WorkflowStage.Purchase => "state.orchestrator.running",
             WorkflowStage.Returning => "state.orchestrator.running",
-            WorkflowStage.Failed => "state.orchestrator.failed",
+            WorkflowStage.Failed => "state.orchestrator.running",
             _ => "state.orchestrator.idle",
         };
     }
@@ -231,10 +299,48 @@ public sealed class WorkflowTask
         bool useNavigation = false)
     {
         isTestMode = true;
-        testIsBusy = isBusy;
-        testShouldTakeOver = shouldTakeOver;
+        testArtisanListRunning = isBusy;
+        testArtisanBusy = isBusy;
         testArtisanPaused = artisanPaused;
-        testHasConfiguredPurchases = hasConfiguredPurchases;
+        testHasPendingPurchaseWork = hasConfiguredPurchases;
+        testHasCollectableTurnIns = shouldTakeOver;
+        testFreeSlotCount = shouldTakeOver ? Math.Max(0, pluginConfig.freeSlotThreshold - 1) : int.MaxValue;
+        testUseNavigation = useNavigation;
+    }
+
+    public void SetTestArtisanState(bool isAvailable, bool isListRunning, bool isBusy, bool isPaused)
+    {
+        isTestMode = true;
+        testArtisanAvailable = isAvailable;
+        testArtisanListRunning = isListRunning;
+        testArtisanBusy = isBusy;
+        testArtisanPaused = isPaused;
+    }
+
+    public void SetTestInventoryState(int freeSlotCount, bool hasCollectableTurnIns, bool hasPendingPurchases)
+    {
+        isTestMode = true;
+        testFreeSlotCount = freeSlotCount;
+        testHasCollectableTurnIns = hasCollectableTurnIns;
+        testHasPendingPurchaseWork = hasPendingPurchases;
+    }
+
+    public void SetTestLocation(bool isInsideHouse, bool isInsideInn)
+    {
+        isTestMode = true;
+        testIsInsideHouse = isInsideHouse;
+        testIsInsideInn = isInsideInn;
+    }
+
+    public void SetTestLocalPlayerReady(bool isReady)
+    {
+        isTestMode = true;
+        testLocalPlayerReady = isReady;
+    }
+
+    public void SetTestUseNavigation(bool useNavigation)
+    {
+        isTestMode = true;
         testUseNavigation = useNavigation;
     }
 
@@ -266,26 +372,125 @@ public sealed class WorkflowTask
         testControlErrorMessage = errorMessage;
     }
 
+    private void BeginWorkflow(WorkflowMode mode)
+    {
+        workflowMode = mode;
+        workflowStage = WorkflowStage.Idle;
+        pendingConfiguredWorkflowStartAfterReturn = false;
+        lastPauseRequested = false;
+        lastResumeRequested = false;
+        lastErrorMessage = null;
+        pauseGateEnteredAt = DateTime.MinValue;
+        idleWaitEnteredAt = DateTime.MinValue;
+        localActionReadyAt = null;
+    }
+
+    private void StartConfiguredWorkflowCore()
+    {
+        if (!WorkflowStartValidator.CanStartCollectable(pluginConfig, out var errorMessage))
+        {
+            Fail(errorMessage);
+            return;
+        }
+
+        var snapshot = GetArtisanSnapshot();
+        if (!CanStartArtisanList(snapshot, out errorMessage))
+        {
+            Fail(errorMessage);
+            return;
+        }
+
+        if ((!artisanListManaged || !snapshot.isListRunning) && !StartConfiguredList())
+        {
+            Fail("Failed to start configured Artisan list.");
+            return;
+        }
+
+        artisanListManaged = true;
+        workflowStage = WorkflowStage.MonitoringArtisan;
+    }
+
     private void HandleMonitoringArtisan()
     {
-        if (!ShouldTakeOver())
+        if (workflowMode != WorkflowMode.ConfiguredWorkflow)
             return;
 
-        if (!IsArtisanPaused())
+        if (ShouldFinalizeConfiguredWorkflow())
         {
-            if (!isTestMode)
-                artisanTask.Pause();
-
+            FinalizeConfiguredWorkflow();
             return;
         }
 
-        if (ShouldUseNavigation())
-        {
-            BeginNavigationToTurnIn();
+        if (!ShouldTakeOverForTurnInAndPurchase())
             return;
+
+        EnterPauseGate();
+    }
+
+    private void HandleWaitingForPause()
+    {
+        var status = BuildArtisanPauseStatus();
+        var decision = ArtisanPauseGate.Evaluate(
+            ArtisanPauseGatePhase.WaitingForAcknowledgement,
+            status,
+            getUtcNow() - pauseGateEnteredAt,
+            pauseAcknowledgementTimeout,
+            artisanIdleTimeout);
+
+        switch (decision.kind)
+        {
+            case ArtisanPauseDecisionKind.MoveToIdleWait:
+                idleWaitEnteredAt = getUtcNow();
+                localActionReadyAt = null;
+                workflowStage = WorkflowStage.WaitingForIdle;
+                return;
+            case ArtisanPauseDecisionKind.Fail:
+                Fail(decision.errorMessage ?? "Timed out while waiting for Artisan pause acknowledgement.");
+                return;
+            default:
+                return;
+        }
+    }
+
+    private void HandleWaitingForIdle()
+    {
+        var status = BuildArtisanPauseStatus();
+        if (ArtisanPauseGate.HasPauseAcknowledgement(status))
+        {
+            if (IsLocalPlayerReady())
+            {
+                if (localActionReadyAt is null)
+                    localActionReadyAt = getUtcNow();
+
+                if ((getUtcNow() - localActionReadyAt.Value) >= localActionReadyStableDuration)
+                {
+                    localActionReadyAt = null;
+
+                    if (ShouldUseNavigation())
+                    {
+                        BeginNavigationToTurnIn();
+                        return;
+                    }
+
+                    BeginTurnIn();
+                    return;
+                }
+            }
+            else
+            {
+                localActionReadyAt = null;
+            }
         }
 
-        BeginTurnIn();
+        var decision = ArtisanPauseGate.Evaluate(
+            ArtisanPauseGatePhase.WaitingForIdle,
+            status,
+            getUtcNow() - idleWaitEnteredAt,
+            pauseAcknowledgementTimeout,
+            artisanIdleTimeout);
+
+        if (decision.kind == ArtisanPauseDecisionKind.Fail)
+            Fail(decision.errorMessage ?? "Timed out while waiting for local control after pausing Artisan.");
     }
 
     private void HandleNavigatingToTurnIn()
@@ -318,19 +523,25 @@ public sealed class WorkflowTask
 
         ConsumeTurnInState();
 
-        if (HasConfiguredPurchases())
+        if (workflowMode == WorkflowMode.ConfiguredWorkflow)
         {
-            if (ShouldUseNavigation())
+            if (HasPendingPurchaseWork())
             {
-                BeginNavigationToPurchase();
+                if (ShouldUseNavigation())
+                {
+                    BeginNavigationToPurchase();
+                    return;
+                }
+
+                BeginPurchase();
                 return;
             }
 
-            BeginPurchase();
+            FinalizeConfiguredWorkflow();
             return;
         }
 
-        BeginReturn();
+        CompleteStandaloneWorkflow();
     }
 
     private void HandleNavigatingToPurchase()
@@ -362,7 +573,14 @@ public sealed class WorkflowTask
             return;
 
         ConsumePurchaseState();
-        BeginReturn();
+
+        if (workflowMode == WorkflowMode.ConfiguredWorkflow)
+        {
+            FinalizeConfiguredWorkflow();
+            return;
+        }
+
+        CompleteStandaloneWorkflow();
     }
 
     private void HandleReturning()
@@ -379,15 +597,34 @@ public sealed class WorkflowTask
 
         ConsumeNavigationState();
 
-        if (workflowMode == WorkflowMode.ConfiguredWorkflow)
+        if (pendingConfiguredWorkflowStartAfterReturn)
         {
-            RequestArtisanResume();
-            workflowStage = WorkflowStage.MonitoringArtisan;
+            pendingConfiguredWorkflowStartAfterReturn = false;
+
+            if (!IsInsideStartLocation())
+            {
+                Fail("Failed to return to the configured start location.");
+                return;
+            }
+
+            StartConfiguredWorkflowCore();
             return;
         }
 
-        workflowMode = WorkflowMode.None;
-        workflowStage = WorkflowStage.Idle;
+        CompleteStandaloneWorkflow();
+    }
+
+    private void EnterPauseGate()
+    {
+        lastPauseRequested = true;
+        pauseGateEnteredAt = getUtcNow();
+        idleWaitEnteredAt = DateTime.MinValue;
+        localActionReadyAt = null;
+
+        if (!isTestMode)
+            artisanTask.RequestPause();
+
+        workflowStage = WorkflowStage.WaitingForPause;
     }
 
     private void BeginNavigationToTurnIn()
@@ -438,44 +675,124 @@ public sealed class WorkflowTask
             artisanTask.Resume();
     }
 
-    private bool CanControlArtisan(out string errorMessage)
+    private bool CanStartPurchase(out string errorMessage)
     {
         if (isTestMode)
         {
-            errorMessage = testCanControl
-                ? string.Empty
-                : testControlErrorMessage ?? "Artisan IPC is unavailable.";
-            return testCanControl;
+            if (pluginConfig.scripShopItems is not { Count: > 0 })
+            {
+                errorMessage = "The purchase list is empty.";
+                return false;
+            }
+
+            if (!pluginConfig.scripShopItems.Any(item => item.itemId > 0 && item.targetCount > 0))
+            {
+                errorMessage = "The purchase list is empty or has no valid target quantities.";
+                return false;
+            }
+
+            if (!testHasPendingPurchaseWork)
+            {
+                errorMessage = "All configured purchase items already reached their target quantities.";
+                return false;
+            }
+
+            errorMessage = string.Empty;
+            return true;
         }
 
-        return artisanTask.CanControl(out errorMessage);
+        return WorkflowStartValidator.CanStartPurchase(pluginConfig, inventoryGame, out errorMessage);
     }
 
-    private bool ShouldTakeOver()
+    private bool CanStartArtisanList(ArtisanSnapshot snapshot, out string errorMessage)
+    {
+        if (isTestMode && !testCanControl)
+        {
+            errorMessage = testControlErrorMessage ?? "Artisan IPC is unavailable.";
+            return false;
+        }
+
+        return WorkflowStartValidator.CanStartArtisanList(snapshot, artisanListManaged, out errorMessage);
+    }
+
+    private ArtisanSnapshot GetArtisanSnapshot()
     {
         if (isTestMode)
-            return testIsBusy && testShouldTakeOver;
+        {
+            return new ArtisanSnapshot(
+                testArtisanAvailable,
+                testArtisanListRunning,
+                testArtisanPaused,
+                false,
+                testArtisanBusy,
+                pluginConfig.artisanListId);
+        }
 
         artisanTask.Update();
-        var snapshot = artisanTask.GetSnapshot();
-        return snapshot.isBusy && snapshot.isPaused;
+        return artisanTask.GetSnapshot();
     }
 
-    private bool IsArtisanPaused()
+    private ArtisanPauseStatus BuildArtisanPauseStatus()
     {
-        if (isTestMode)
-            return testArtisanPaused;
-
-        artisanTask.Update();
-        return artisanTask.GetSnapshot().isPaused;
+        var snapshot = GetArtisanSnapshot();
+        return new ArtisanPauseStatus(
+            snapshot.isBusy,
+            snapshot.isListRunning,
+            snapshot.isPaused,
+            snapshot.hasStopRequest);
     }
 
-    private bool HasConfiguredPurchases()
+    private bool IsInsideStartLocation()
     {
         if (isTestMode)
-            return testHasConfiguredPurchases;
+            return testIsInsideHouse || testIsInsideInn;
 
-        return pluginConfig.scripShopItems.Count > 0;
+        return locationGame.IsInsideHouse() || locationGame.IsInsideInn();
+    }
+
+    private bool HasPendingPurchaseWork()
+    {
+        if (isTestMode)
+            return testHasPendingPurchaseWork;
+
+        return WorkflowStartValidator.HasPendingPurchaseWork(pluginConfig, inventoryGame);
+    }
+
+    private bool HasTurnInWork()
+    {
+        if (isTestMode)
+            return testHasCollectableTurnIns;
+
+        return inventoryGame.HasCollectableTurnIns();
+    }
+
+    private bool IsBelowFreeSlotThreshold()
+    {
+        var threshold = pluginConfig.freeSlotThreshold;
+        if (threshold <= 0)
+            return false;
+
+        var freeSlotCount = isTestMode
+            ? testFreeSlotCount
+            : inventoryGame.GetFreeSlotCount();
+
+        return freeSlotCount < threshold;
+    }
+
+    private bool ShouldTakeOverForTurnInAndPurchase()
+    {
+        var snapshot = GetArtisanSnapshot();
+        return artisanListManaged
+            && snapshot.isAvailable
+            && IsBelowFreeSlotThreshold()
+            && HasTurnInWork();
+    }
+
+    private bool ShouldFinalizeConfiguredWorkflow()
+    {
+        var snapshot = GetArtisanSnapshot();
+        return !HasPendingPurchaseWork()
+            || (!snapshot.isListRunning && !ShouldTakeOverForTurnInAndPurchase());
     }
 
     private bool ShouldUseNavigation()
@@ -484,6 +801,22 @@ public sealed class WorkflowTask
             return testUseNavigation;
 
         return true;
+    }
+
+    private bool StartConfiguredList()
+    {
+        if (isTestMode)
+            return testStartConfiguredListSucceeded;
+
+        return artisanTask.StartConfiguredList();
+    }
+
+    private bool IsLocalPlayerReady()
+    {
+        if (isTestMode)
+            return testLocalPlayerReady;
+
+        return LocalPlayerActionGate.IsReadyForAutomation(playerStateGame.GetLocalPlayerActionStatus());
     }
 
     private bool HasNavigationCompleted()
@@ -566,11 +899,50 @@ public sealed class WorkflowTask
         testPurchaseFailed = false;
     }
 
+    private void FinalizeConfiguredWorkflow()
+    {
+        AbortRuntime(stopArtisan: false);
+        artisanListManaged = false;
+        pendingConfiguredWorkflowStartAfterReturn = false;
+        workflowMode = WorkflowMode.None;
+        workflowStage = WorkflowStage.Idle;
+        localActionReadyAt = null;
+        pauseGateEnteredAt = DateTime.MinValue;
+        idleWaitEnteredAt = DateTime.MinValue;
+    }
+
+    private void CompleteStandaloneWorkflow()
+    {
+        AbortRuntime(stopArtisan: false);
+        workflowMode = WorkflowMode.None;
+        workflowStage = WorkflowStage.Idle;
+        pendingConfiguredWorkflowStartAfterReturn = false;
+        localActionReadyAt = null;
+        pauseGateEnteredAt = DateTime.MinValue;
+        idleWaitEnteredAt = DateTime.MinValue;
+    }
+
+    private void AbortRuntime(bool stopArtisan)
+    {
+        navigationTask.Stop();
+        turnInTask.Stop();
+        purchaseTask.Stop();
+
+        if (stopArtisan)
+            artisanTask.Stop();
+    }
+
     private void Fail(string errorMessage)
     {
+        AbortRuntime(stopArtisan: true);
         lastErrorMessage = errorMessage;
         workflowMode = WorkflowMode.None;
         workflowStage = WorkflowStage.Failed;
+        artisanListManaged = false;
+        pendingConfiguredWorkflowStartAfterReturn = false;
+        localActionReadyAt = null;
+        pauseGateEnteredAt = DateTime.MinValue;
+        idleWaitEnteredAt = DateTime.MinValue;
         TryDuoLogError(errorMessage);
     }
 

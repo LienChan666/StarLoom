@@ -54,6 +54,17 @@ public sealed class ArtisanTask
         return true;
     }
 
+    public void RequestPause()
+    {
+        Update();
+
+        if (!snapshot.isAvailable || snapshot.isPaused || !snapshot.isListRunning)
+            return;
+
+        artisanIpc.SetListPause(true);
+        Update();
+    }
+
     public void Pause()
     {
         Update();

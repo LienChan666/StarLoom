@@ -17,6 +17,16 @@ public sealed class InventoryGame
         return 0;
     }
 
+    public int GetFreeSlotCount()
+    {
+        return int.MaxValue;
+    }
+
+    public bool HasCollectableTurnIns()
+    {
+        return GroupCollectables(GetInventoryItems()).Count > 0;
+    }
+
     public static List<CollectableGroup> GroupCollectables(IEnumerable<InventoryItemView> items)
     {
         return items

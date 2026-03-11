@@ -4,11 +4,11 @@ public sealed class LocationGame
 {
     public bool IsInsideHouse()
     {
-        return false;
+        return ReturnPointGame.IsInsideHouse();
     }
 
     public bool IsInsideInn()
     {
-        return false;
+        return ReturnPointGame.IsInsideInn();
     }
 }

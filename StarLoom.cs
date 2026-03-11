@@ -30,13 +30,23 @@ public sealed class StarLoom : IDalamudPlugin
         var npcGame = new NpcGame();
         var collectableShopGame = new CollectableShopGame();
         var scripShopGame = new ScripShopGame();
+        var playerStateGame = new PlayerStateGame();
+        var locationGame = new LocationGame();
         var purchaseCatalog = new PurchaseCatalog();
         var artisanTask = new ArtisanTask(new ArtisanIpc(), pluginConfig);
         var navigationTask = new NavigationTask(new VNavmeshIpc(), new LifestreamIpc());
         var turnInTask = new TurnInTask(inventoryGame, npcGame, collectableShopGame);
         var purchaseTask = new PurchaseTask(pluginConfig, inventoryGame, scripShopGame);
 
-        workflowTask = new WorkflowTask(pluginConfig, artisanTask, navigationTask, turnInTask, purchaseTask);
+        workflowTask = new WorkflowTask(
+            pluginConfig,
+            artisanTask,
+            navigationTask,
+            turnInTask,
+            purchaseTask,
+            inventoryGame,
+            playerStateGame,
+            locationGame);
         pluginUi = new PluginUi(workflowTask, configStore, purchaseCatalog);
 
         Svc.Commands.AddHandler("/starloom", new CommandInfo(OnCommand)
