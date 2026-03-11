@@ -8,13 +8,17 @@ public sealed class ReturnPointConfig
     public byte subIndex { get; set; }
     public bool isApartment { get; set; }
     public string displayName { get; set; } = string.Empty;
-    public bool isInn => string.Equals(kind, "inn", StringComparison.Ordinal);
+    public bool isInn
+    {
+        get => string.Equals(kind, "inn", StringComparison.Ordinal);
+        set => kind = value ? "inn" : "housing";
+    }
 
     public static ReturnPointConfig CreateInn()
     {
         return new ReturnPointConfig
         {
-            kind = "inn",
+            isInn = true,
             displayName = "Inn",
         };
     }

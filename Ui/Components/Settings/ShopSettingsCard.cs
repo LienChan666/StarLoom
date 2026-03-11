@@ -2,6 +2,7 @@ using Dalamud.Bindings.ImGui;
 using StarLoom.Config;
 using StarLoom.Ui;
 using StarLoom.Ui.Components.Shared;
+using System.Numerics;
 
 namespace StarLoom.Ui.Components.Settings;
 
@@ -12,23 +13,36 @@ internal sealed class ShopSettingsCard
         new CollectableShopConfig
         {
             displayName = "Solution Nine",
+            location = new Vector3(-162.17f, 0.9219f, -30.458f),
+            scripShopLocation = new Vector3(-161.84605f, 0.921f, -42.06536f),
             aetheryteId = 186,
             territoryId = 1186,
             npcId = 1027542,
+            scripShopNpcId = 1027541,
+            isLifestreamRequired = true,
+            lifestreamCommand = "Nexus Arcade",
         },
         new CollectableShopConfig
         {
             displayName = "Eulmore",
+            location = new Vector3(16.94f, 82.05f, -19.177f),
+            scripShopLocation = new Vector3(16.94f, 82.05f, -19.177f),
             aetheryteId = 134,
             territoryId = 820,
             npcId = 1027542,
+            scripShopNpcId = 1027541,
         },
         new CollectableShopConfig
         {
             displayName = "Old Gridania",
+            location = new Vector3(143.62454f, 13.74769f, -105.33799f),
+            scripShopLocation = new Vector3(143.62454f, 13.74769f, -105.33799f),
             aetheryteId = 2,
             territoryId = 133,
             npcId = 1027542,
+            scripShopNpcId = 1027541,
+            isLifestreamRequired = true,
+            lifestreamCommand = "Leatherworkers",
         },
     ];
 
@@ -81,10 +95,15 @@ internal sealed class ShopSettingsCard
     {
         return new CollectableShopConfig
         {
+            location = shop.location,
             displayName = shop.displayName,
             territoryId = shop.territoryId,
             aetheryteId = shop.aetheryteId,
             npcId = shop.npcId,
+            scripShopNpcId = shop.scripShopNpcId,
+            scripShopLocation = shop.scripShopLocation,
+            isLifestreamRequired = shop.isLifestreamRequired,
+            lifestreamCommand = shop.lifestreamCommand,
         };
     }
 }

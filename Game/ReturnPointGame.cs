@@ -1,13 +1,19 @@
 using Dalamud.Game.ClientState.Conditions;
+using Dalamud.Game.ClientState.Objects.Enums;
+using Dalamud.Game.ClientState.Objects.Types;
+using ECommons.ExcelServices.TerritoryEnumeration;
 using FFXIVClientStructs.FFXIV.Client.Game;
 using FFXIVClientStructs.FFXIV.Client.Game.UI;
 using Lumina.Excel.Sheets;
 using StarLoom.Config;
+using System.Numerics;
 
 namespace StarLoom.Game;
 
 public static unsafe class ReturnPointGame
 {
+    private const uint HouseEntranceDataId = 2002737;
+    private const uint ApartmentEntranceDataId = 2007402;
     private static readonly HashSet<uint> ResidentialTerritories = [339, 340, 341, 641, 979];
 
     public static List<ReturnPointConfig> GetAvailableReturnPoints()
@@ -44,7 +50,7 @@ public static unsafe class ReturnPointGame
 
             result.Add(new ReturnPointConfig
             {
-                kind = "housing",
+                isInn = false,
                 territoryId = info.TerritoryId,
                 aetheryteId = info.AetheryteId,
                 subIndex = info.SubIndex,
@@ -57,6 +63,65 @@ public static unsafe class ReturnPointGame
             .OrderBy(point => point.isInn ? 0 : 1)
             .ThenBy(point => point.displayName, StringComparer.Ordinal)
             .ToList();
+    }
+
+    public static bool TryResolveConfiguredPoint(ReturnPointConfig configuredPoint, out ReturnPointConfig resolvedPoint)
+    {
+        if (configuredPoint.isInn)
+        {
+            resolvedPoint = ReturnPointConfig.CreateInn();
+            return true;
+        }
+
+        var resolved = GetAvailableReturnPoints().FirstOrDefault(point =>
+            point.aetheryteId == configuredPoint.aetheryteId &&
+            point.subIndex == configuredPoint.subIndex);
+
+        if (resolved == null)
+        {
+            resolvedPoint = new ReturnPointConfig();
+            return false;
+        }
+
+        resolvedPoint = resolved;
+        return true;
+    }
+
+    public static bool CanEnterDirectlyFromCurrentLocation(ReturnPointConfig point)
+    {
+        if (point.isInn)
+            return false;
+
+        if (Svc.ClientState.TerritoryType != point.territoryId)
+            return false;
+
+        if (Svc.Objects.LocalPlayer is not { } localPlayer)
+            return false;
+
+        return TryGetHousingEntrance(localPlayer.Position, point.isApartment, out var entrance)
+            && entrance != null;
+    }
+
+    public static bool IsInsideHouse()
+    {
+        var housingManager = HousingManager.Instance();
+        return housingManager != null && housingManager->IsInside();
+    }
+
+    public static bool IsInsideInn()
+    {
+        return Inns.List.Contains(Svc.ClientState.TerritoryType);
+    }
+
+    public static bool TryGetHousingEntrance(Vector3 origin, bool isApartment, out IGameObject? entrance)
+    {
+        var targetDataId = isApartment ? ApartmentEntranceDataId : HouseEntranceDataId;
+        entrance = Svc.Objects
+            .Where(obj => obj.ObjectKind == ObjectKind.EventObj && obj.BaseId == targetDataId)
+            .OrderBy(obj => Vector3.DistanceSquared(obj.Position, origin))
+            .FirstOrDefault();
+
+        return entrance != null;
     }
 
     private static string BuildDisplayName(uint aetheryteId, bool isApartment)

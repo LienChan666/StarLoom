@@ -140,7 +140,7 @@ internal sealed class CraftPointSettingsCard
     {
         return new ReturnPointConfig
         {
-            kind = point.kind,
+            isInn = point.isInn,
             territoryId = point.territoryId,
             aetheryteId = point.aetheryteId,
             subIndex = point.subIndex,

@@ -2,6 +2,14 @@ namespace StarLoom.Config;
 
 public static class ConfigDefaults
 {
+    internal static bool HasMissingValues(PluginConfig pluginConfig)
+    {
+        return pluginConfig.defaultReturnPoint == null
+            || string.IsNullOrWhiteSpace(pluginConfig.uiLanguage)
+            || !Enum.IsDefined(pluginConfig.postPurchaseAction)
+            || pluginConfig.freeSlotThreshold <= 0;
+    }
+
     public static void Apply(PluginConfig pluginConfig)
     {
         if (pluginConfig.defaultReturnPoint == null)

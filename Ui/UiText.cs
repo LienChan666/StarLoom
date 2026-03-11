@@ -39,12 +39,22 @@ public sealed class UiText
     public void Reload()
     {
         var filePath = Path.Combine(baseDirectory, "Resources", "Localization", $"{getLanguage()}.json");
-        var json = File.ReadAllText(filePath);
-        var parsed = JsonSerializer.Deserialize<Dictionary<string, string>>(json, JsonOptions);
-        if (parsed is null || parsed.Count == 0)
-            throw new InvalidOperationException($"Localization file is empty: {filePath}");
+        try
+        {
+            var json = File.ReadAllText(filePath);
+            var parsed = JsonSerializer.Deserialize<Dictionary<string, string>>(json, JsonOptions);
+            if (parsed is null || parsed.Count == 0)
+            {
+                LogLoadWarning($"Localization file was empty or invalid: {filePath}");
+                return;
+            }
 
-        translations = parsed;
+            translations = parsed;
+        }
+        catch (Exception ex)
+        {
+            LogLoadWarning($"Failed to load localization file: {filePath}", ex);
+        }
     }
 
     public string Get(string key)
@@ -55,5 +65,18 @@ public sealed class UiText
     public string Format(string key, params object[] args)
     {
         return string.Format(CultureInfo.InvariantCulture, Get(key), args);
+    }
+
+    private static void LogLoadWarning(string message, Exception? exception = null)
+    {
+        var detail = exception == null ? message : $"{message}{Environment.NewLine}{exception}";
+
+        try
+        {
+            Svc.Log.Warning(detail);
+        }
+        catch
+        {
+        }
     }
 }

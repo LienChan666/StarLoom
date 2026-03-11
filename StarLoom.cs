@@ -64,7 +64,14 @@ public sealed class StarLoom : IDalamudPlugin
     {
         Svc.Framework.Update -= OnUpdate;
         Svc.Commands.RemoveHandler("/starloom");
+        StopWorkflowBeforeDispose(workflowTask);
         pluginUi.Dispose();
         ECommonsMain.Dispose();
+    }
+
+    private static void StopWorkflowBeforeDispose(WorkflowTask workflowTask)
+    {
+        if (workflowTask.isBusy)
+            workflowTask.Stop();
     }
 }
