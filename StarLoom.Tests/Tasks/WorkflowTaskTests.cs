@@ -146,6 +146,25 @@ public sealed class WorkflowTaskTests
     }
 
     [Fact]
+    public void StartTurnInOnly_Should_Wait_For_Artisan_Pause_Before_Starting_Local_Action()
+    {
+        var workflowTask = WorkflowTask.CreateForTests(CreateConfig());
+        workflowTask.SetTestUseNavigation(false);
+        workflowTask.SetTestArtisanState(isAvailable: true, isListRunning: true, isBusy: true, isPaused: false);
+
+        workflowTask.StartTurnInOnly();
+
+        Assert.Equal("WaitingForPause", workflowTask.currentStage);
+        Assert.True(workflowTask.lastPauseRequested);
+
+        workflowTask.SetTestArtisanState(isAvailable: true, isListRunning: true, isBusy: true, isPaused: true);
+        workflowTask.Update();
+        workflowTask.Update();
+
+        Assert.Equal("TurnIn", workflowTask.currentStage);
+    }
+
+    [Fact]
     public void StartTurnInOnly_Should_Build_Collectable_Navigation_Request_From_Config()
     {
         var config = CreateConfig();
@@ -200,6 +219,29 @@ public sealed class WorkflowTaskTests
     }
 
     [Fact]
+    public void StartPurchaseOnly_Should_Wait_For_Artisan_Handoff_When_Endurance_Is_Still_Active()
+    {
+        var workflowTask = WorkflowTask.CreateForTests(CreateConfig());
+        workflowTask.SetTestUseNavigation(false);
+        workflowTask.SetTestArtisanState(
+            isAvailable: true,
+            isListRunning: false,
+            isBusy: false,
+            isPaused: false,
+            hasEnduranceEnabled: true);
+
+        workflowTask.StartPurchaseOnly();
+
+        Assert.Equal("WaitingForPause", workflowTask.currentStage);
+        Assert.True(workflowTask.lastPauseRequested);
+
+        workflowTask.Update();
+        workflowTask.Update();
+
+        Assert.Equal("Purchase", workflowTask.currentStage);
+    }
+
+    [Fact]
     public void StartPurchaseOnly_Should_Build_Scrip_Shop_Navigation_Request_From_Config()
     {
         var config = CreateConfig();
@@ -239,6 +281,7 @@ public sealed class WorkflowTaskTests
 
         DriveConfiguredWorkflowToPurchase(workflowTask);
 
+        workflowTask.SetTestInventoryState(freeSlotCount: 20, hasCollectableTurnIns: false, hasPendingPurchases: false);
         workflowTask.SetTestPurchaseState(isCompleted: true);
         workflowTask.Update();
 
@@ -254,10 +297,37 @@ public sealed class WorkflowTaskTests
 
         DriveConfiguredWorkflowToPurchase(workflowTask);
 
+        workflowTask.SetTestInventoryState(freeSlotCount: 20, hasCollectableTurnIns: false, hasPendingPurchases: false);
         workflowTask.SetTestPurchaseState(isCompleted: true);
         workflowTask.Update();
 
         Assert.Equal("ClosingGame", workflowTask.currentStage);
+    }
+
+    [Fact]
+    public void ConfiguredWorkflow_Should_Return_To_Start_And_Resume_Crafting_When_Pending_Targets_Remain()
+    {
+        var config = CreateConfig();
+        config.postPurchaseAction = PostPurchaseAction.CloseGame;
+        var workflowTask = WorkflowTask.CreateForTests(config);
+
+        DriveConfiguredWorkflowToPurchase(workflowTask);
+
+        workflowTask.SetTestLocation(isInsideHouse: false, isInsideInn: false);
+        workflowTask.SetTestInventoryState(freeSlotCount: 20, hasCollectableTurnIns: false, hasPendingPurchases: true);
+        workflowTask.SetTestPurchaseState(isCompleted: true);
+        workflowTask.Update();
+
+        Assert.Equal("Returning", workflowTask.currentStage);
+        Assert.False(workflowTask.closeGameRequested);
+
+        workflowTask.SetTestLocation(isInsideHouse: true, isInsideInn: false);
+        workflowTask.SetTestArtisanState(isAvailable: true, isListRunning: true, isBusy: false, isPaused: true);
+        workflowTask.SetTestReturnState(isCompleted: true);
+        workflowTask.Update();
+
+        Assert.Equal("MonitoringArtisan", workflowTask.currentStage);
+        Assert.True(workflowTask.lastResumeRequested);
     }
 
     [Fact]
@@ -269,6 +339,7 @@ public sealed class WorkflowTaskTests
 
         DriveConfiguredWorkflowToPurchase(workflowTask);
 
+        workflowTask.SetTestInventoryState(freeSlotCount: 20, hasCollectableTurnIns: false, hasPendingPurchases: false);
         workflowTask.SetTestPurchaseState(isCompleted: true);
         workflowTask.Update();
         Assert.Equal("Returning", workflowTask.currentStage);
@@ -317,6 +388,24 @@ public sealed class WorkflowTaskTests
 
         Assert.Equal("Idle", workflowTask.currentStage);
         Assert.False(workflowTask.isBusy);
+    }
+
+    [Fact]
+    public void StartConfiguredWorkflow_Should_Fail_When_Artisan_Endurance_Is_Still_Active()
+    {
+        var workflowTask = WorkflowTask.CreateForTests(CreateConfig());
+        workflowTask.SetTestLocation(isInsideHouse: true, isInsideInn: false);
+        workflowTask.SetTestArtisanState(
+            isAvailable: true,
+            isListRunning: false,
+            isBusy: false,
+            isPaused: false,
+            hasEnduranceEnabled: true);
+
+        workflowTask.StartConfiguredWorkflow();
+
+        Assert.Equal("Failed", workflowTask.currentStage);
+        Assert.Equal("Artisan is busy with another task.", workflowTask.lastErrorMessage);
     }
 
     private static void DriveConfiguredWorkflowToPurchase(WorkflowTask workflowTask)

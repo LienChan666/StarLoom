@@ -26,6 +26,11 @@ public sealed class ArtisanIpc : IArtisanIpc
         return ipcCallRunner.InvokeFunc("Artisan.IsBusy", false);
     }
 
+    public bool GetEnduranceStatus()
+    {
+        return ipcCallRunner.InvokeFunc("Artisan.GetEnduranceStatus", false);
+    }
+
     public bool GetStopRequest()
     {
         return ipcCallRunner.InvokeFunc("Artisan.GetStopRequest", false);

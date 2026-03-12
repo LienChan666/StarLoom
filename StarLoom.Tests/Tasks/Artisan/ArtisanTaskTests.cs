@@ -30,6 +30,50 @@ public sealed class ArtisanTaskTests
         Assert.True(artisanIpc.pauseRequested);
     }
 
+    [Fact]
+    public void RequestPause_Should_Request_Stop_When_List_Is_Running()
+    {
+        var artisanIpc = new FakeArtisanIpc
+        {
+            isAvailable = true,
+            isListRunning = true,
+            isListPaused = false,
+            isBusy = true,
+        };
+
+        var artisanTask = new ArtisanTask(artisanIpc, new PluginConfig
+        {
+            artisanListId = 7,
+        });
+
+        artisanTask.RequestPause();
+
+        Assert.True(artisanIpc.stopRequestIssued);
+        Assert.False(artisanIpc.pauseRequested);
+    }
+
+    [Fact]
+    public void GetSnapshot_Should_Include_Endurance_Status()
+    {
+        var artisanIpc = new FakeArtisanIpc
+        {
+            isAvailable = true,
+            isListRunning = false,
+            isListPaused = false,
+            isBusy = false,
+            hasEnduranceEnabled = true,
+        };
+
+        var artisanTask = new ArtisanTask(artisanIpc, new PluginConfig
+        {
+            artisanListId = 7,
+        });
+
+        var snapshot = artisanTask.GetSnapshot();
+
+        Assert.True(snapshot.hasEnduranceEnabled);
+    }
+
     private sealed class FakeArtisanIpc : IArtisanIpc
     {
         public bool isAvailable;
@@ -37,7 +81,9 @@ public sealed class ArtisanTaskTests
         public bool isListPaused;
         public bool isBusy;
         public bool hasStopRequest;
+        public bool hasEnduranceEnabled;
         public bool pauseRequested;
+        public bool stopRequestIssued;
 
         public bool IsAvailable()
         {
@@ -64,6 +110,11 @@ public sealed class ArtisanTaskTests
             return hasStopRequest;
         }
 
+        public bool GetEnduranceStatus()
+        {
+            return hasEnduranceEnabled;
+        }
+
         public void SetListPause(bool paused)
         {
             pauseRequested = paused;
@@ -72,6 +123,7 @@ public sealed class ArtisanTaskTests
 
         public void SetStopRequest(bool stop)
         {
+            stopRequestIssued = stop;
             hasStopRequest = stop;
         }
 

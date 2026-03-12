@@ -6,6 +6,7 @@ public interface IArtisanIpc
     bool IsListRunning();
     bool IsListPaused();
     bool IsBusy();
+    bool GetEnduranceStatus();
     bool GetStopRequest();
     void SetListPause(bool paused);
     void SetStopRequest(bool stop);

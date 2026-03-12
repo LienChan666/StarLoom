@@ -58,10 +58,10 @@ public sealed class ArtisanTask
     {
         Update();
 
-        if (!snapshot.isAvailable || snapshot.isPaused || !snapshot.isListRunning)
+        if (!snapshot.isAvailable || snapshot.isPaused || !snapshot.isListRunning || snapshot.hasStopRequest)
             return;
 
-        artisanIpc.SetListPause(true);
+        artisanIpc.SetStopRequest(true);
         Update();
     }
 
@@ -112,7 +112,7 @@ public sealed class ArtisanTask
     {
         var isAvailable = artisanIpc.IsAvailable();
         if (!isAvailable)
-            return new ArtisanSnapshot(false, false, false, false, false, pluginConfig.artisanListId);
+            return new ArtisanSnapshot(false, false, false, false, false, false, pluginConfig.artisanListId);
 
         return new ArtisanSnapshot(
             isAvailable,
@@ -120,6 +120,7 @@ public sealed class ArtisanTask
             artisanIpc.IsListPaused(),
             artisanIpc.GetStopRequest(),
             artisanIpc.IsBusy(),
+            artisanIpc.GetEnduranceStatus(),
             pluginConfig.artisanListId);
     }
 

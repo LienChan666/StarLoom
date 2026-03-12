@@ -63,7 +63,7 @@ internal static class WorkflowStartValidator
             return true;
         }
 
-        if (snapshot.isListRunning || snapshot.isBusy)
+        if (snapshot.isListRunning || snapshot.isBusy || snapshot.hasEnduranceEnabled)
         {
             errorMessage = "Artisan is busy with another task.";
             return false;

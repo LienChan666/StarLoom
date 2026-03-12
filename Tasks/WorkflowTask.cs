@@ -36,6 +36,13 @@ public sealed class WorkflowTask
         Failed,
     }
 
+    private enum PauseContinuation
+    {
+        None,
+        TurnIn,
+        Purchase,
+    }
+
     private readonly PluginConfig pluginConfig;
     private readonly ArtisanTask artisanTask;
     private readonly NavigationTask navigationTask;
@@ -61,6 +68,7 @@ public sealed class WorkflowTask
     private bool testArtisanListRunning = true;
     private bool testArtisanBusy = true;
     private bool testArtisanPaused;
+    private bool testArtisanEnduranceEnabled;
     private bool testHasPendingPurchaseWork = true;
     private bool testHasCollectableTurnIns;
     private int testFreeSlotCount = int.MaxValue;
@@ -81,6 +89,7 @@ public sealed class WorkflowTask
     private DateTime pauseGateEnteredAt = DateTime.MinValue;
     private DateTime idleWaitEnteredAt = DateTime.MinValue;
     private DateTime? localActionReadyAt;
+    private PauseContinuation pauseContinuation;
 
     public string currentStage => workflowStage switch
     {
@@ -184,6 +193,7 @@ public sealed class WorkflowTask
         workflowTask.testArtisanListRunning = false;
         workflowTask.testArtisanBusy = false;
         workflowTask.testArtisanPaused = false;
+        workflowTask.testArtisanEnduranceEnabled = false;
         workflowTask.testIsInsideHouse = true;
         workflowTask.testIsInsideInn = false;
         return workflowTask;
@@ -219,6 +229,12 @@ public sealed class WorkflowTask
             return;
         }
 
+        if (ShouldPauseBeforeLocalAutomation())
+        {
+            EnterPauseGate(PauseContinuation.TurnIn);
+            return;
+        }
+
         if (ShouldUseNavigation())
         {
             BeginNavigationToTurnIn();
@@ -238,6 +254,12 @@ public sealed class WorkflowTask
         if (!CanStartPurchase(out var errorMessage))
         {
             Fail(errorMessage);
+            return;
+        }
+
+        if (ShouldPauseBeforeLocalAutomation())
+        {
+            EnterPauseGate(PauseContinuation.Purchase);
             return;
         }
 
@@ -265,6 +287,7 @@ public sealed class WorkflowTask
         pauseGateEnteredAt = DateTime.MinValue;
         idleWaitEnteredAt = DateTime.MinValue;
         localActionReadyAt = null;
+        pauseContinuation = PauseContinuation.None;
     }
 
     public void Update()
@@ -341,13 +364,14 @@ public sealed class WorkflowTask
         testUseNavigation = useNavigation;
     }
 
-    public void SetTestArtisanState(bool isAvailable, bool isListRunning, bool isBusy, bool isPaused)
+    public void SetTestArtisanState(bool isAvailable, bool isListRunning, bool isBusy, bool isPaused, bool hasEnduranceEnabled = false)
     {
         isTestMode = true;
         testArtisanAvailable = isAvailable;
         testArtisanListRunning = isListRunning;
         testArtisanBusy = isBusy;
         testArtisanPaused = isPaused;
+        testArtisanEnduranceEnabled = hasEnduranceEnabled;
     }
 
     public void SetTestInventoryState(int freeSlotCount, bool hasCollectableTurnIns, bool hasPendingPurchases)
@@ -442,12 +466,14 @@ public sealed class WorkflowTask
             return;
         }
 
-        if ((!artisanListManaged || !snapshot.isListRunning) && !StartConfiguredList())
+        var requiresListStartOrResume = !snapshot.isListRunning || snapshot.isPaused;
+        if ((!artisanListManaged || requiresListStartOrResume) && !StartConfiguredList())
         {
             Fail("Failed to start configured Artisan list.");
             return;
         }
 
+        lastResumeRequested = artisanListManaged && requiresListStartOrResume;
         artisanListManaged = true;
         workflowStage = WorkflowStage.MonitoringArtisan;
     }
@@ -466,7 +492,7 @@ public sealed class WorkflowTask
         if (!ShouldTakeOverForTurnInAndPurchase())
             return;
 
-        EnterPauseGate();
+        EnterPauseGate(PauseContinuation.TurnIn);
     }
 
     private void HandleWaitingForPause()
@@ -507,14 +533,7 @@ public sealed class WorkflowTask
                 if ((getUtcNow() - localActionReadyAt.Value) >= localActionReadyStableDuration)
                 {
                     localActionReadyAt = null;
-
-                    if (ShouldUseNavigation())
-                    {
-                        BeginNavigationToTurnIn();
-                        return;
-                    }
-
-                    BeginTurnIn();
+                    ContinueAfterPauseGate();
                     return;
                 }
             }
@@ -616,7 +635,19 @@ public sealed class WorkflowTask
 
         ConsumePurchaseState();
 
-        if (workflowMode is WorkflowMode.ConfiguredWorkflow or WorkflowMode.PurchaseOnly)
+        if (workflowMode == WorkflowMode.ConfiguredWorkflow)
+        {
+            if (HasPendingPurchaseWork())
+            {
+                ResumeConfiguredWorkflowAfterTakeover();
+                return;
+            }
+
+            DispatchFinalCompletion();
+            return;
+        }
+
+        if (workflowMode == WorkflowMode.PurchaseOnly)
         {
             DispatchFinalCompletion();
             return;
@@ -656,12 +687,13 @@ public sealed class WorkflowTask
         CompletePostActionWorkflow();
     }
 
-    private void EnterPauseGate()
+    private void EnterPauseGate(PauseContinuation continuation)
     {
         lastPauseRequested = true;
         pauseGateEnteredAt = getUtcNow();
         idleWaitEnteredAt = DateTime.MinValue;
         localActionReadyAt = null;
+        pauseContinuation = continuation;
 
         if (!isTestMode)
             artisanTask.RequestPause();
@@ -746,6 +778,25 @@ public sealed class WorkflowTask
         BeginReturn();
     }
 
+    private void ResumeConfiguredWorkflowAfterTakeover()
+    {
+        if (!IsInsideStartLocation())
+        {
+            pendingConfiguredWorkflowStartAfterReturn = true;
+            BeginReturn();
+            return;
+        }
+
+        StartConfiguredWorkflowCore();
+    }
+
+    private bool ShouldPauseBeforeLocalAutomation()
+    {
+        var snapshot = GetArtisanSnapshot();
+        return snapshot.isAvailable
+            && (snapshot.isListRunning || snapshot.hasEnduranceEnabled);
+    }
+
     private bool CanStartPurchase(out string errorMessage)
     {
         if (isTestMode)
@@ -796,6 +847,7 @@ public sealed class WorkflowTask
                 testArtisanPaused,
                 false,
                 testArtisanBusy,
+                testArtisanEnduranceEnabled,
                 pluginConfig.artisanListId);
         }
 
@@ -1012,6 +1064,7 @@ public sealed class WorkflowTask
         localActionReadyAt = null;
         pauseGateEnteredAt = DateTime.MinValue;
         idleWaitEnteredAt = DateTime.MinValue;
+        pauseContinuation = PauseContinuation.None;
     }
 
     private void CompleteStandaloneWorkflow()
@@ -1023,6 +1076,7 @@ public sealed class WorkflowTask
         localActionReadyAt = null;
         pauseGateEnteredAt = DateTime.MinValue;
         idleWaitEnteredAt = DateTime.MinValue;
+        pauseContinuation = PauseContinuation.None;
     }
 
     private void AbortRuntime(bool stopArtisan)
@@ -1047,7 +1101,37 @@ public sealed class WorkflowTask
         localActionReadyAt = null;
         pauseGateEnteredAt = DateTime.MinValue;
         idleWaitEnteredAt = DateTime.MinValue;
+        pauseContinuation = PauseContinuation.None;
         TryDuoLogError(errorMessage);
+    }
+
+    private void ContinueAfterPauseGate()
+    {
+        var continuation = pauseContinuation;
+        pauseContinuation = PauseContinuation.None;
+
+        switch (continuation)
+        {
+            case PauseContinuation.Purchase:
+                if (ShouldUseNavigation())
+                {
+                    BeginNavigationToPurchase();
+                    return;
+                }
+
+                BeginPurchase();
+                return;
+            case PauseContinuation.TurnIn:
+            default:
+                if (ShouldUseNavigation())
+                {
+                    BeginNavigationToTurnIn();
+                    return;
+                }
+
+                BeginTurnIn();
+                return;
+        }
     }
 
     private NavigationRequest BuildTurnInNavigationRequest()
@@ -1097,6 +1181,7 @@ public sealed class WorkflowTask
         public bool IsListRunning() => true;
         public bool IsListPaused() => false;
         public bool IsBusy() => true;
+        public bool GetEnduranceStatus() => false;
         public bool GetStopRequest() => false;
         public void SetListPause(bool paused) { }
         public void SetStopRequest(bool stop) { }
