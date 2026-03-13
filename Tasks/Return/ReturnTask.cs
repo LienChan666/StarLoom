@@ -8,7 +8,7 @@ namespace StarLoom.Tasks.Return;
 
 public interface IReturnTaskRuntime
 {
-    bool TryResolveConfiguredPoint(ReturnPointConfig configuredPoint, out ReturnPointConfig resolvedPoint);
+    bool TryResolveConfiguredPoint(ReturnPointConfig? configuredPoint, out ReturnPointConfig resolvedPoint);
     bool CanEnterDirectlyFromCurrentLocation(ReturnPointConfig point);
     bool TryTeleportToReturnPoint(ReturnPointConfig point, ILifestreamIpc lifestreamIpc);
     bool IsTransitioning();
@@ -71,7 +71,7 @@ public sealed class ReturnTask
         this.getUtcNow = getUtcNow ?? (() => DateTime.UtcNow);
     }
 
-    public void Start(ReturnPointConfig configuredPoint)
+    public void Start(ReturnPointConfig? configuredPoint)
     {
         Stop();
 
@@ -378,8 +378,9 @@ public sealed class ReturnTask
             this.npcGame = npcGame;
         }
 
-        public bool TryResolveConfiguredPoint(ReturnPointConfig configuredPoint, out ReturnPointConfig resolvedPoint)
+        public bool TryResolveConfiguredPoint(ReturnPointConfig? configuredPoint, out ReturnPointConfig resolvedPoint)
         {
+            configuredPoint ??= ReturnPointConfig.CreateInn();
             return ReturnPointGame.TryResolveConfiguredPoint(configuredPoint, out resolvedPoint);
         }
 

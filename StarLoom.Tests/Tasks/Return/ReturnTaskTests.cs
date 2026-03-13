@@ -27,6 +27,24 @@ public sealed class ReturnTaskTests
     }
 
     [Fact]
+    public void Start_Should_Default_To_Inn_When_Return_Point_Is_Null()
+    {
+        var runtime = new FakeReturnTaskRuntime
+        {
+            resolvedPoint = ReturnPointConfig.CreateInn(),
+            teleportResult = true,
+        };
+
+        var returnTask = CreateReturnTask(runtime);
+
+        returnTask.Start(null);
+
+        Assert.Equal("WaitingForInn", returnTask.currentStage);
+        Assert.True(runtime.teleportAttempted);
+        Assert.True(runtime.configuredPointWasNull);
+    }
+
+    [Fact]
     public void Start_Should_Move_To_Entrance_When_Direct_Housing_Entry_Is_Available()
     {
         var runtime = new FakeReturnTaskRuntime
@@ -85,9 +103,11 @@ public sealed class ReturnTaskTests
         public bool canEnterDirectly;
         public bool teleportResult;
         public bool teleportAttempted;
+        public bool configuredPointWasNull;
 
-        public bool TryResolveConfiguredPoint(ReturnPointConfig configuredPoint, out ReturnPointConfig resolvedPoint)
+        public bool TryResolveConfiguredPoint(ReturnPointConfig? configuredPoint, out ReturnPointConfig resolvedPoint)
         {
+            configuredPointWasNull = configuredPoint == null;
             resolvedPoint = this.resolvedPoint;
             return true;
         }
