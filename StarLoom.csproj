@@ -8,10 +8,12 @@
   </PropertyGroup>
 
   <PropertyGroup>
+    <WslXivLauncherCnDevPath Condition="Exists('/mnt/c/Users/YLC/AppData/Roaming/XIVLauncherCN/addon/Hooks/dev/Dalamud.dll')">/mnt/c/Users/YLC/AppData/Roaming/XIVLauncherCN/addon/Hooks/dev</WslXivLauncherCnDevPath>
     <DalamudLibPath Condition="'$(DalamudLibPath)' == '' and Exists('$(AppData)\XIVLauncherCN\addon\Hooks\dev\Dalamud.dll')">$(AppData)\XIVLauncherCN\addon\Hooks\dev\</DalamudLibPath>
     <DalamudLibPath Condition="'$(DalamudLibPath)' == '' and Exists('$(AppData)\XIVLauncher\addon\Hooks\dev\Dalamud.dll')">$(AppData)\XIVLauncher\addon\Hooks\dev\</DalamudLibPath>
+    <DalamudLibPath Condition="'$(DalamudLibPath)' == '' and '$(WslXivLauncherCnDevPath)' != ''">$(WslXivLauncherCnDevPath)</DalamudLibPath>
     <DalamudDevPlugins Condition="'$(DalamudDevPlugins)' == '' and Exists('$(AppData)\XIVLauncherCN\addon\Hooks\dev\Dalamud.dll')">$(AppData)\XIVLauncherCN\devPlugins\StarLoom\</DalamudDevPlugins>
-    <DalamudDevPlugins Condition="'$(DalamudDevPlugins)' == ''">$(AppData)\XIVLauncher\devPlugins\StarLoom\</DalamudDevPlugins>
+    <DalamudDevPlugins Condition="'$(DalamudDevPlugins)' == '' and '$(WslXivLauncherCnDevPath)' == ''">$(AppData)\XIVLauncher\devPlugins\StarLoom\</DalamudDevPlugins>
     <AssemblyName>StarLoom</AssemblyName>
     <RootNamespace>StarLoom</RootNamespace>
     <PackageId>StarLoom</PackageId>
