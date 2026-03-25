@@ -1,11 +1,11 @@
 ﻿{
-    "Author":  "YLC",
+    "Author":  "KindSheep",
     "Name":  "Starloom",
-    "Punchline":  "Automation companion for FFXIV.",
-    "Description":  "Handles collectable turn-ins, scrip purchases, and other post-craft automation.",
+    "Punchline":  "收藏品提交与工票物品购买助手。",
+    "Description":  "用于处理收藏品提交、工票物品购买与制作后流程衔接。",
     "InternalName":  "Starloom",
     "AssemblyVersion":  "0.1.0.0",
-    "RepoUrl":  "",
+    "RepoUrl":  "https://github.com/LienChan666/StarLoom",
     "ApplicableVersion":  "any",
     "DalamudApiLevel":  14
 }
