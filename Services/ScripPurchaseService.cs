@@ -1,3 +1,4 @@
+using ECommons.Automation.NeoTaskManager;
 using Starloom.Data;
 using Starloom.GameInterop.Addons;
 using System;
@@ -7,139 +8,97 @@ using static ECommons.GenericHelpers;
 
 namespace Starloom.Services;
 
-public enum ScripPurchasePhase
-{
-    Idle,
-    PreparingQueue,
-    Navigating,
-    WaitingForShop,
-    SelectingPage,
-    SelectingSubPage,
-    SelectingItem,
-    Purchasing,
-    WaitingForPurchase,
-    Cleanup,
-    Done,
-    Failed,
-}
-
 public sealed class ScripPurchaseService
 {
     private static readonly TimeSpan ActionDelay = TimeSpan.FromMilliseconds(500);
     private static readonly TimeSpan PurchaseTimeout = TimeSpan.FromSeconds(5);
     private static readonly TimeSpan ShopWindowTimeout = TimeSpan.FromSeconds(30);
+    private static readonly TaskManagerConfiguration NavigationTaskConfig = new(
+        (int)TimeSpan.FromMinutes(2).TotalMilliseconds,
+        true,
+        true,
+        false,
+        false,
+        true,
+        true);
 
     private readonly ScripShopAddon shopAddon = new();
     private readonly Queue<PendingPurchaseItem> purchaseQueue = new();
 
-    public string? ErrorMessage { get; private set; }
-    public bool IsCompleted => phase == ScripPurchasePhase.Done;
-    public bool HasFailed => phase == ScripPurchasePhase.Failed;
-
-    private ScripPurchasePhase phase = ScripPurchasePhase.Idle;
     private DateTime lastActionAt;
     private DateTime purchaseStartedAt;
-    private DateTime stateEnteredAt = DateTime.MinValue;
+    private DateTime shopWaitStartedAt;
     private bool navigationStarted;
     private int currentPurchaseAmount;
     private uint currentTargetItemId;
     private string currentTargetItemName = string.Empty;
     private int inventoryCountBeforePurchase;
 
-    public void Start()
+    public void Enqueue()
     {
-        purchaseQueue.Clear();
-        lastActionAt = DateTime.MinValue;
-        purchaseStartedAt = DateTime.MinValue;
-        navigationStarted = false;
-        currentPurchaseAmount = 0;
-        currentTargetItemId = 0;
-        currentTargetItemName = string.Empty;
-        inventoryCountBeforePurchase = 0;
-        ErrorMessage = null;
-        TransitionTo(ScripPurchasePhase.PreparingQueue);
+        Reset();
+        P.TM.Enqueue(PrepareQueue, "ScripPurchase.Prepare");
+        P.TM.Enqueue(NavigateToShop, "ScripPurchase.Navigate", NavigationTaskConfig);
+        P.TM.Enqueue(WaitForShop, "ScripPurchase.WaitShop");
+        P.TM.Enqueue(ProcessNextPurchase, "ScripPurchase.Next");
+        P.TM.Enqueue(Cleanup, "ScripPurchase.Cleanup");
     }
 
     public void Stop()
     {
         shopAddon.CloseShop();
-        purchaseQueue.Clear();
-        ErrorMessage = null;
-        TransitionTo(ScripPurchasePhase.Idle);
+        P.Navigation.Stop();
+        Reset();
     }
 
-    public void Advance()
+    private void Reset()
     {
-        if (phase is ScripPurchasePhase.Idle or ScripPurchasePhase.Done or ScripPurchasePhase.Failed)
-            return;
-
-        switch (phase)
-        {
-            case ScripPurchasePhase.PreparingQueue:
-                HandlePrepareQueue();
-                return;
-            case ScripPurchasePhase.Navigating:
-                HandleNavigating();
-                return;
-            case ScripPurchasePhase.WaitingForShop:
-                HandleWaitingForShop();
-                return;
-            case ScripPurchasePhase.SelectingPage:
-                HandleSelectingPage();
-                return;
-            case ScripPurchasePhase.SelectingSubPage:
-                HandleSelectingSubPage();
-                return;
-            case ScripPurchasePhase.SelectingItem:
-                HandleSelectingItem();
-                return;
-            case ScripPurchasePhase.Purchasing:
-                HandlePurchasing();
-                return;
-            case ScripPurchasePhase.WaitingForPurchase:
-                HandleWaitingForPurchase();
-                return;
-            case ScripPurchasePhase.Cleanup:
-                HandleCleanup();
-                return;
-        }
+        purchaseQueue.Clear();
+        lastActionAt = DateTime.MinValue;
+        purchaseStartedAt = DateTime.MinValue;
+        shopWaitStartedAt = DateTime.MinValue;
+        navigationStarted = false;
+        currentPurchaseAmount = 0;
+        currentTargetItemId = 0;
+        currentTargetItemName = string.Empty;
+        inventoryCountBeforePurchase = 0;
     }
 
-    private void HandlePrepareQueue()
+    private bool? PrepareQueue()
     {
         P.Inventory.InvalidateTransientCaches();
         if (C.PreferredCollectableShop == null)
-        {
-            Fail("Collectable shop is not configured.");
-            return;
-        }
+            return Fail("Collectable shop is not configured.");
 
         purchaseQueue.Clear();
-        foreach (var item in P.PurchaseResolver.Resolve())
+        foreach (var item in P.PurchaseResolver.ResolvePendingTargets())
             purchaseQueue.Enqueue(item);
 
         if (purchaseQueue.Count == 0)
-        {
             Svc.Log.Debug("No pending purchases, skipping.");
-            TransitionTo(ScripPurchasePhase.Done);
-            return;
-        }
 
-        TransitionTo(ScripPurchasePhase.Navigating);
+        return true;
     }
 
-    private void HandleNavigating()
+    private bool? NavigateToShop()
     {
+        if (purchaseQueue.Count == 0)
+            return true;
+
         var shop = C.PreferredCollectableShop!;
         var target = new NavigationTarget(
-            shop.ScripShopLocation, shop.AetheryteId, shop.TerritoryId, 0.4f,
-            shop.IsLifestreamRequired, shop.LifestreamCommand);
+            shop.ScripShopLocation,
+            shop.AetheryteId,
+            shop.TerritoryId,
+            0.4f,
+            shop.IsLifestreamRequired,
+            shop.LifestreamCommand);
 
         if (!navigationStarted || P.Navigation.IsIdle)
         {
             P.Navigation.NavigateTo(target);
             navigationStarted = true;
-            return;
+            return false;
         }
 
         P.Navigation.Poll();
@@ -148,40 +107,43 @@ public sealed class ScripPurchaseService
             P.Navigation.Stop();
             navigationStarted = false;
             lastActionAt = DateTime.MinValue;
-            TransitionTo(ScripPurchasePhase.WaitingForShop);
-            return;
+            shopWaitStartedAt = DateTime.UtcNow;
+            return true;
         }
 
         if (P.Navigation.HasFailed)
-        {
-            Fail(P.Navigation.ErrorMessage ?? "Could not reach the scrip shop.");
-            return;
-        }
+            return Fail(P.Navigation.ErrorMessage ?? "Could not reach the scrip shop.");
+
+        return false;
     }
 
-    private void HandleWaitingForShop()
+    private bool? WaitForShop()
     {
+        if (purchaseQueue.Count == 0)
+            return true;
+
         if (shopAddon.IsReady)
         {
             lastActionAt = DateTime.MinValue;
-            TransitionTo(ScripPurchasePhase.SelectingPage);
-            return;
+            return true;
         }
 
-        if (TimedOut(ShopWindowTimeout))
-        {
-            Fail("Timed out while waiting for the scrip shop window.");
-            return;
-        }
+        if (shopWaitStartedAt == DateTime.MinValue)
+            shopWaitStartedAt = DateTime.UtcNow;
+
+        if ((DateTime.UtcNow - shopWaitStartedAt) > ShopWindowTimeout)
+            return Fail("Timed out while waiting for the scrip shop window.");
 
         if ((DateTime.UtcNow - lastActionAt) < TimeSpan.FromSeconds(1))
-            return;
+            return false;
 
         var shop = C.PreferredCollectableShop!;
         if (TryOpenScripShop())
             lastActionAt = DateTime.UtcNow;
         else if (P.NpcInteraction.TryInteract(shop.ScripShopNpcId))
             lastActionAt = DateTime.UtcNow;
+
+        return false;
     }
 
     private unsafe bool TryOpenScripShop()
@@ -195,40 +157,60 @@ public sealed class ScripPurchaseService
         return true;
     }
 
-    private void HandleSelectingPage()
+    private bool? ProcessNextPurchase()
     {
-        if (purchaseQueue.Count == 0) { TransitionTo(ScripPurchasePhase.Done); return; }
-        if (!ActionDelayElapsed()) return;
+        if (purchaseQueue.Count == 0)
+            return true;
 
-        var next = purchaseQueue.Peek();
-        shopAddon.SelectPage(next.Page);
-        lastActionAt = DateTime.UtcNow;
-        TransitionTo(ScripPurchasePhase.SelectingSubPage);
+        P.TM.BeginStack();
+        P.TM.Enqueue(SelectCurrentPage, "ScripPurchase.SelectPage");
+        P.TM.Enqueue(SelectCurrentSubPage, "ScripPurchase.SelectSubPage");
+        P.TM.Enqueue(SelectCurrentItem, "ScripPurchase.SelectItem");
+        P.TM.Enqueue(PurchaseCurrentItem, "ScripPurchase.Purchase");
+        P.TM.Enqueue(WaitForPurchaseCompletion, "ScripPurchase.WaitPurchase");
+        P.TM.Enqueue(ProcessNextPurchase, "ScripPurchase.Next");
+        P.TM.InsertStack();
+        return true;
     }
 
-    private void HandleSelectingSubPage()
+    private bool? SelectCurrentPage()
     {
-        if (purchaseQueue.Count == 0) { TransitionTo(ScripPurchasePhase.Done); return; }
-        if (!ActionDelayElapsed()) return;
+        if (purchaseQueue.Count == 0)
+            return true;
 
-        var next = purchaseQueue.Peek();
-        shopAddon.SelectSubPage(next.SubPage);
+        if (!ActionDelayElapsed())
+            return false;
+
+        shopAddon.SelectPage(purchaseQueue.Peek().Page);
         lastActionAt = DateTime.UtcNow;
-        TransitionTo(ScripPurchasePhase.SelectingItem);
+        return true;
     }
 
-    private void HandleSelectingItem()
+    private bool? SelectCurrentSubPage()
     {
-        if (purchaseQueue.Count == 0) { TransitionTo(ScripPurchasePhase.Done); return; }
-        if (!ActionDelayElapsed()) return;
+        if (purchaseQueue.Count == 0)
+            return true;
+
+        if (!ActionDelayElapsed())
+            return false;
+
+        shopAddon.SelectSubPage(purchaseQueue.Peek().SubPage);
+        lastActionAt = DateTime.UtcNow;
+        return true;
+    }
+
+    private bool? SelectCurrentItem()
+    {
+        if (purchaseQueue.Count == 0)
+            return true;
+
+        if (!ActionDelayElapsed())
+            return false;
 
         var next = purchaseQueue.Peek();
         var scrips = P.Inventory.GetCurrencyItemCount(next.CurrencyItemId);
         if (scrips < 0)
-        {
-            Fail($"Could not read scrip count for {next.ItemName}");
-            return;
-        }
+            return Fail($"Could not read scrip count for {next.ItemName}");
 
         var availableScrips = Math.Max(0, scrips - C.ReserveScripAmount);
         var maxByScrip = next.ItemCost > 0 ? availableScrips / next.ItemCost : next.RemainingQuantity;
@@ -237,11 +219,13 @@ public sealed class ScripPurchaseService
         {
             Svc.Log.Debug($"Skipping {next.ItemName}: not enough scrips (current={scrips}, reserve={C.ReserveScripAmount}, cost={next.ItemCost})");
             purchaseQueue.Dequeue();
-            if (purchaseQueue.Count > 0)
-                TransitionTo(ScripPurchasePhase.SelectingPage);
-            else
-                TransitionTo(ScripPurchasePhase.Cleanup);
-            return;
+            currentPurchaseAmount = 0;
+            currentTargetItemId = 0;
+            currentTargetItemName = string.Empty;
+            inventoryCountBeforePurchase = 0;
+            purchaseStartedAt = DateTime.MinValue;
+            lastActionAt = DateTime.UtcNow;
+            return true;
         }
 
         var knownShopItems = P.ShopItems.ShopItems.Count > 0
@@ -249,10 +233,7 @@ public sealed class ScripPurchaseService
             : C.ScripShopItems.Select(item => item.Item).ToList();
 
         if (!shopAddon.SelectItem(next.ItemId, next.ItemName, amount, knownShopItems))
-        {
-            Fail($"Could not locate the item in the scrip shop: {next.ItemName}");
-            return;
-        }
+            return Fail($"Could not locate the item in the scrip shop: {next.ItemName}");
 
         currentPurchaseAmount = amount;
         currentTargetItemId = next.ItemId;
@@ -260,13 +241,16 @@ public sealed class ScripPurchaseService
         inventoryCountBeforePurchase = P.Inventory.GetInventoryItemCount(next.ItemId);
         purchaseStartedAt = DateTime.MinValue;
         lastActionAt = DateTime.UtcNow;
-        TransitionTo(ScripPurchasePhase.Purchasing);
+        return true;
     }
 
-    private void HandlePurchasing()
+    private bool? PurchaseCurrentItem()
     {
-        if (purchaseQueue.Count == 0) { TransitionTo(ScripPurchasePhase.Done); return; }
-        if (!ActionDelayElapsed()) return;
+        if (currentTargetItemId == 0)
+            return true;
+
+        if (!ActionDelayElapsed())
+            return false;
 
         var result = shopAddon.PurchaseItem(currentTargetItemId, currentTargetItemName);
         switch (result)
@@ -275,38 +259,37 @@ public sealed class ScripPurchaseService
                 if (purchaseStartedAt == DateTime.MinValue)
                     purchaseStartedAt = DateTime.UtcNow;
                 if ((DateTime.UtcNow - purchaseStartedAt) > PurchaseTimeout)
-                {
-                    Fail($"Purchase confirmation window did not appear: {currentTargetItemName}");
-                    return;
-                }
-                return;
+                    return Fail($"Purchase confirmation window did not appear: {currentTargetItemName}");
+                return false;
 
             case ScripShopAddon.PurchaseDialogResult.MismatchedItem:
-                Fail($"Purchase confirmation item mismatch: {currentTargetItemName}");
-                return;
+                return Fail($"Purchase confirmation item mismatch: {currentTargetItemName}");
 
             case ScripShopAddon.PurchaseDialogResult.Confirmed:
                 purchaseStartedAt = DateTime.UtcNow;
                 lastActionAt = DateTime.UtcNow;
-                TransitionTo(ScripPurchasePhase.WaitingForPurchase);
-                return;
+                return true;
+
+            default:
+                return false;
         }
     }
 
-    private void HandleWaitingForPurchase()
+    private bool? WaitForPurchaseCompletion()
     {
-        if (purchaseQueue.Count == 0) { TransitionTo(ScripPurchasePhase.Done); return; }
-        if (!ActionDelayElapsed()) return;
+        if (currentTargetItemId == 0)
+            return true;
+
+        if (!ActionDelayElapsed())
+            return false;
 
         var currentCount = P.Inventory.GetInventoryItemCount(currentTargetItemId);
         if (currentCount <= inventoryCountBeforePurchase)
         {
             if ((DateTime.UtcNow - purchaseStartedAt) > PurchaseTimeout)
-            {
-                Fail($"Scrip purchase did not complete: {currentTargetItemName}");
-                return;
-            }
-            return;
+                return Fail($"Scrip purchase did not complete: {currentTargetItemName}");
+
+            return false;
         }
 
         var completedPurchase = purchaseQueue.Peek();
@@ -321,38 +304,26 @@ public sealed class ScripPurchaseService
         inventoryCountBeforePurchase = 0;
         purchaseStartedAt = DateTime.MinValue;
         lastActionAt = DateTime.UtcNow;
-
-        if (purchaseQueue.Count > 0)
-            TransitionTo(ScripPurchasePhase.SelectingPage);
-        else
-            TransitionTo(ScripPurchasePhase.Cleanup);
+        return true;
     }
 
-    private void HandleCleanup()
+    private bool? Cleanup()
     {
         shopAddon.CloseShop();
         P.Inventory.InvalidateTransientCaches();
+        P.Navigation.Stop();
         Svc.Log.Debug("Scrip purchase completed.");
-        TransitionTo(ScripPurchasePhase.Done);
+        return true;
     }
 
-    private void Fail(string message)
+    private bool? Fail(string message)
     {
         Svc.Log.Error($"Scrip purchase failed: {message}");
-        ErrorMessage = message;
         shopAddon.CloseShop();
-        TransitionTo(ScripPurchasePhase.Failed);
+        P.Navigation.Stop();
+        return null;
     }
 
     private bool ActionDelayElapsed()
         => (DateTime.UtcNow - lastActionAt) >= ActionDelay;
-
-    private bool TimedOut(TimeSpan timeout)
-        => (DateTime.UtcNow - stateEnteredAt) > timeout;
-
-    private void TransitionTo(ScripPurchasePhase phase)
-    {
-        this.phase = phase;
-        stateEnteredAt = DateTime.UtcNow;
-    }
 }

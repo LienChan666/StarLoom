@@ -15,7 +15,7 @@ public sealed class PendingPurchaseResolver
         this.inventory = inventory;
     }
 
-    public IReadOnlyList<PendingPurchaseItem> Resolve()
+    public IReadOnlyList<PendingPurchaseItem> ResolvePendingTargets()
         => config.ScripShopItems
             .Where(item => item.Item != null && item.Quantity > 0)
             .Where(item => item.Item!.Page < 3)
@@ -24,7 +24,7 @@ public sealed class PendingPurchaseResolver
             .Cast<PendingPurchaseItem>()
             .ToList();
 
-    public bool HasPending() => Resolve().Count > 0;
+    public bool HasPending() => ResolvePendingTargets().Count > 0;
 
     private PendingPurchaseItem? CreatePendingItem(ItemToPurchase item)
     {

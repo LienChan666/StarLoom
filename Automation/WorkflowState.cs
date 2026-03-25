@@ -4,8 +4,8 @@ internal enum WorkflowState
 {
     Idle,
     WaitingForStartReturn,
-    StartingArtisan,
-    Running,
-    ReturningToCraftPoint,
+    MonitoringArtisan,
+    LoopingTurnInAndPurchase,
+    FinalizingCompletion,
     Failed,
 }

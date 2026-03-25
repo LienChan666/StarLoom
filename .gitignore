@@ -1,0 +1,15 @@
+/bin
+/obj
+/Debug
+/Release
+/.docs
+/.gitignore
+/_temp
+/.tools
+/.codex_tmp_lumina_reflect
+/Starloom.Tests
+.dotnet
+/docs
+/.obsidian
+.claude
+/.worktrees

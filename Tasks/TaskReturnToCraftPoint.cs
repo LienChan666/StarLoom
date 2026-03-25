@@ -1,5 +1,6 @@
 using Dalamud.Game.ClientState.Conditions;
 using ECommons.UIHelpers.AddonMasterImplementations;
+using ECommons.Automation.NeoTaskManager;
 using FFXIVClientStructs.FFXIV.Client.UI;
 using Starloom.Data;
 using Starloom.GameInterop.IPC;
@@ -13,6 +14,14 @@ internal static unsafe class TaskReturnToCraftPoint
 {
     private static readonly TimeSpan innTeleportTimeout = TimeSpan.FromMinutes(5);
     private static readonly TimeSpan actionDelay = TimeSpan.FromMilliseconds(500);
+    private static readonly TaskManagerConfiguration InnWaitTaskConfig = new(
+        (int)TimeSpan.FromMinutes(6).TotalMilliseconds,
+        true,
+        true,
+        false,
+        false,
+        true,
+        true);
 
     private static HousingReturnPoint? target;
     private static bool navigationStarted;
@@ -26,7 +35,7 @@ internal static unsafe class TaskReturnToCraftPoint
         P.TM.Enqueue(ResolveTarget, "Return.Resolve");
         P.TM.Enqueue(TeleportToReturnPoint, "Return.Teleport");
         P.TM.Enqueue(WaitForTeleport, "Return.WaitTeleport");
-        P.TM.Enqueue(WaitForInn, "Return.WaitInn");
+        P.TM.Enqueue(WaitForInn, "Return.WaitInn", InnWaitTaskConfig);
         P.TM.Enqueue(MoveToEntrance, "Return.MoveToEntrance");
         P.TM.Enqueue(InteractEntrance, "Return.Interact");
         P.TM.Enqueue(ConfirmEntry, "Return.Confirm");
@@ -200,8 +209,7 @@ internal static unsafe class TaskReturnToCraftPoint
 
         if (!HousingReturnPointService.TryGetHousingEntrance(localPlayer.Position, target.IsApartment, out var entrance) || entrance == null)
         {
-            P.TM.EnqueueImmediate(MoveToEntrance, "Return.MoveToEntrance");
-            P.TM.EnqueueImmediate(InteractEntrance, "Return.Interact");
+            ReinsertMoveAndInteract();
             return true;
         }
 
@@ -256,8 +264,7 @@ internal static unsafe class TaskReturnToCraftPoint
         if ((DateTime.UtcNow - transitionedAt) > TimeSpan.FromSeconds(6))
         {
             lastActionAt = DateTime.MinValue;
-            P.TM.EnqueueImmediate(InteractEntrance, "Return.Interact");
-            P.TM.EnqueueImmediate(ConfirmEntry, "Return.Confirm");
+            ReinsertInteractAndConfirm();
             return true;
         }
 
@@ -280,4 +287,20 @@ internal static unsafe class TaskReturnToCraftPoint
 
     private static bool IsTransitioning()
         => Svc.Condition[ConditionFlag.BetweenAreas] || Svc.Condition[ConditionFlag.BetweenAreas51];
+
+    private static void ReinsertMoveAndInteract()
+    {
+        P.TM.BeginStack();
+        P.TM.Enqueue(MoveToEntrance, "Return.MoveToEntrance");
+        P.TM.Enqueue(InteractEntrance, "Return.Interact");
+        P.TM.InsertStack();
+    }
+
+    private static void ReinsertInteractAndConfirm()
+    {
+        P.TM.BeginStack();
+        P.TM.Enqueue(InteractEntrance, "Return.Interact");
+        P.TM.Enqueue(ConfirmEntry, "Return.Confirm");
+        P.TM.InsertStack();
+    }
 }

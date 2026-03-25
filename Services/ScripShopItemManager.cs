@@ -20,7 +20,7 @@ public sealed class ScripShopItemManager
     };
 
     private readonly Configuration config;
-    private readonly ConfigurationStore configurationStore;
+    private readonly ConfigurationEditor configurationEditor;
     private readonly ScripShopCatalogBuilder catalogBuilder = new();
     private readonly SemaphoreSlim syncLock = new(1, 1);
     private string CachePath => Path.Combine(Svc.PluginInterface.ConfigDirectory.FullName, CacheFileName);
@@ -28,10 +28,10 @@ public sealed class ScripShopItemManager
     internal List<ScripShopItem> ShopItems = [];
     internal bool IsLoading { get; private set; }
 
-    public ScripShopItemManager(Configuration config, ConfigurationStore configurationStore)
+    public ScripShopItemManager(Configuration config, ConfigurationEditor configurationEditor)
     {
         this.config = config;
-        this.configurationStore = configurationStore;
+        this.configurationEditor = configurationEditor;
         RequestLoad();
     }
 
@@ -116,54 +116,6 @@ public sealed class ScripShopItemManager
 
     private void SyncConfiguredItems(List<ScripShopItem> latestItems)
     {
-        if (config.ScripShopItems.Count == 0 || latestItems.Count == 0)
-            return;
-
-        var latestLookup = latestItems.ToDictionary(item => item.ItemId);
-        var changed = false;
-
-        foreach (var configuredItem in config.ScripShopItems)
-        {
-            if (!latestLookup.TryGetValue(configuredItem.Item.ItemId, out var latest))
-                continue;
-
-            if (AreEquivalent(configuredItem.Item, latest))
-                continue;
-
-            configuredItem.Item = CloneItem(latest);
-            changed = true;
-        }
-
-        if (changed)
-            configurationStore.Save();
+        configurationEditor.SyncConfiguredItems(latestItems);
     }
-
-    private static bool AreEquivalent(ScripShopItem left, ScripShopItem right)
-        => left.ItemId == right.ItemId
-           && string.Equals(left.Name, right.Name, StringComparison.Ordinal)
-           && left.Index == right.Index
-           && left.ItemCost == right.ItemCost
-           && left.Page == right.Page
-           && left.SubPage == right.SubPage
-           && left.CurrencySpecialId == right.CurrencySpecialId
-           && left.CurrencyItemId == right.CurrencyItemId
-           && string.Equals(left.CurrencyName, right.CurrencyName, StringComparison.Ordinal)
-           && left.Discipline == right.Discipline
-           && left.TierRank == right.TierRank;
-
-    private static ScripShopItem CloneItem(ScripShopItem item)
-        => new()
-        {
-            Name = item.Name,
-            ItemID = item.ItemID,
-            Index = item.Index,
-            ItemCost = item.ItemCost,
-            Page = item.Page,
-            SubPage = item.SubPage,
-            CurrencySpecialId = item.CurrencySpecialId,
-            CurrencyItemId = item.CurrencyItemId,
-            CurrencyName = item.CurrencyName,
-            Discipline = item.Discipline,
-            TierRank = item.TierRank,
-        };
 }

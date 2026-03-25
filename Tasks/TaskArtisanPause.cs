@@ -30,11 +30,6 @@ internal static class TaskArtisanPause
         P.TM.Enqueue(WaitForArtisanIdle, "ArtisanPause.WaitIdle");
     }
 
-    internal static void EnqueueRestore()
-    {
-        P.TM.Enqueue(RestoreArtisanStopRequest, "ArtisanPause.Restore");
-    }
-
     private static bool? WaitForPauseAcknowledgement()
     {
         var core = P.Artisan.GetPauseStatus();
@@ -94,12 +89,5 @@ internal static class TaskArtisanPause
             return null;
 
         return false;
-    }
-
-    private static bool? RestoreArtisanStopRequest()
-    {
-        if (P.Artisan.IsAvailable() && P.Artisan.GetStopRequest())
-            P.Artisan.SetStopRequest(false);
-        return true;
     }
 }

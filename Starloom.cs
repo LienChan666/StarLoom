@@ -1,7 +1,7 @@
 using Dalamud.Game.Command;
 using Dalamud.Plugin;
 using ECommons;
-using ECommons.Automation.LegacyTaskManager;
+using ECommons.Automation.NeoTaskManager;
 using Starloom.Automation;
 using Starloom.GameInterop.IPC;
 using Starloom.Services;
@@ -16,6 +16,7 @@ public sealed class Starloom : IDalamudPlugin
 
     internal TaskManager TM;
     internal ConfigurationStore ConfigStore;
+    internal ConfigurationEditor ConfigEditor;
     internal LocalizationService Localization;
     internal InventoryService Inventory;
     internal NavigationService Navigation;
@@ -36,12 +37,13 @@ public sealed class Starloom : IDalamudPlugin
         TM = new TaskManager();
         ConfigStore = new ConfigurationStore();
         ConfigStore.EnsureDefaults();
+        ConfigEditor = new ConfigurationEditor(ConfigStore);
         Localization = new LocalizationService(ConfigStore);
         Inventory = new InventoryService();
         Navigation = new NavigationService();
         NpcInteraction = new NpcInteractionService();
         Artisan = new ArtisanIpc();
-        ShopItems = new ScripShopItemManager(C, ConfigStore);
+        ShopItems = new ScripShopItemManager(C, ConfigEditor);
         PurchaseResolver = new PendingPurchaseResolver(C, Inventory);
         CollectableTurnIn = new CollectableTurnInService();
         ScripPurchase = new ScripPurchaseService();

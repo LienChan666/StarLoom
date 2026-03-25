@@ -15,32 +15,7 @@ internal static class WorkflowStartValidator
         return false;
     }
 
-    internal static bool CanStartPurchase(out string errorMessage)
-    {
-        if (C.ScripShopItems is not { Count: > 0 })
-        {
-            errorMessage = "The purchase list is empty.";
-            return false;
-        }
-
-        var pendingItems = P.PurchaseResolver.Resolve();
-        if (C.ScripShopItems.TrueForAll(item => item.Item == null || item.Quantity <= 0))
-        {
-            errorMessage = "The purchase list is empty or has no valid target quantities.";
-            return false;
-        }
-
-        if (pendingItems.Count == 0)
-        {
-            errorMessage = "All configured purchase items already reached their target quantities.";
-            return false;
-        }
-
-        errorMessage = string.Empty;
-        return true;
-    }
-
-    internal static bool CanStartArtisanList(out string errorMessage)
+    internal static bool CanStartArtisanList(bool artisanListManaged, out string errorMessage)
     {
         if (!P.Artisan.IsAvailable())
         {
@@ -52,6 +27,12 @@ internal static class WorkflowStartValidator
         {
             errorMessage = "Artisan list id is required.";
             return false;
+        }
+
+        if (artisanListManaged && P.Artisan.IsListRunning())
+        {
+            errorMessage = string.Empty;
+            return true;
         }
 
         if (P.Artisan.IsListRunning() || P.Artisan.GetEnduranceStatus() || P.Artisan.IsBusy())

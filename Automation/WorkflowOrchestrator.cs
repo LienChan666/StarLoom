@@ -9,16 +9,14 @@ internal sealed class WorkflowOrchestrator : IDisposable
     {
         None,
         ConfiguredWorkflow,
-        CollectableTurnIn,
-        PurchaseOnly,
     }
 
     private readonly WorkflowTaskDispatcher dispatcher = new();
     private PendingStartKind pendingStart;
+    private bool artisanListManaged;
 
     internal WorkflowState State { get; private set; } = WorkflowState.Idle;
-    internal bool IsBusy => State is not WorkflowState.Idle || P.TM.IsBusy;
-    internal bool HasConfiguredPurchases => C.ScripShopItems is { Count: > 0 };
+    internal bool IsBusy => State is not WorkflowState.Idle and not WorkflowState.Failed || P.TM.IsBusy;
 
     internal void StartConfiguredWorkflow()
     {
@@ -30,29 +28,10 @@ internal sealed class WorkflowOrchestrator : IDisposable
         StartConfiguredWorkflowCore();
     }
 
-    internal void StartCollectableTurnIn()
-    {
-        if (IsBusy) return;
-
-        if (!PrepareStartOrReturn(PendingStartKind.CollectableTurnIn))
-            return;
-
-        StartCollectableTurnInCore();
-    }
-
-    internal void StartPurchaseOnly()
-    {
-        if (IsBusy) return;
-
-        if (!PrepareStartOrReturn(PendingStartKind.PurchaseOnly))
-            return;
-
-        StartPurchaseOnlyCore();
-    }
-
     internal void Stop()
     {
         CleanupRuntime(stopArtisan: true);
+        artisanListManaged = false;
         pendingStart = PendingStartKind.None;
         State = WorkflowState.Idle;
     }
@@ -65,8 +44,21 @@ internal sealed class WorkflowOrchestrator : IDisposable
             return;
         }
 
-        if (!P.TM.IsBusy && State is WorkflowState.Running or WorkflowState.ReturningToCraftPoint)
-            State = WorkflowState.Idle;
+        if (P.TM.IsBusy)
+            return;
+
+        switch (State)
+        {
+            case WorkflowState.MonitoringArtisan:
+                HandleMonitoringArtisan();
+                return;
+            case WorkflowState.LoopingTurnInAndPurchase:
+                HandleLoopingTurnInAndPurchase();
+                return;
+            case WorkflowState.FinalizingCompletion:
+                CompleteFinalizingCompletion();
+                return;
+        }
     }
 
     internal string GetStateKey()
@@ -75,10 +67,10 @@ internal sealed class WorkflowOrchestrator : IDisposable
         {
             WorkflowState.Idle => "state.orchestrator.idle",
             WorkflowState.WaitingForStartReturn => "state.orchestrator.running",
-            WorkflowState.StartingArtisan => "state.orchestrator.running",
-            WorkflowState.Running => "state.orchestrator.running",
-            WorkflowState.ReturningToCraftPoint => "state.orchestrator.running",
-            WorkflowState.Failed => "state.orchestrator.running",
+            WorkflowState.MonitoringArtisan => "state.orchestrator.running",
+            WorkflowState.LoopingTurnInAndPurchase => "state.orchestrator.running",
+            WorkflowState.FinalizingCompletion => "state.orchestrator.running",
+            WorkflowState.Failed => "state.orchestrator.idle",
             _ => "state.orchestrator.idle",
         };
     }
@@ -113,12 +105,6 @@ internal sealed class WorkflowOrchestrator : IDisposable
             case PendingStartKind.ConfiguredWorkflow:
                 StartConfiguredWorkflowCore();
                 return;
-            case PendingStartKind.CollectableTurnIn:
-                StartCollectableTurnInCore();
-                return;
-            case PendingStartKind.PurchaseOnly:
-                StartPurchaseOnlyCore();
-                return;
             default:
                 State = WorkflowState.Idle;
                 return;
@@ -134,35 +120,16 @@ internal sealed class WorkflowOrchestrator : IDisposable
             return;
         }
 
-        State = WorkflowState.StartingArtisan;
-        dispatcher.DispatchConfiguredWorkflow();
-        State = WorkflowState.Running;
-    }
-
-    private void StartCollectableTurnInCore()
-    {
-        if (!WorkflowStartValidator.CanStartCollectable(out var error))
+        if (!WorkflowStartValidator.CanStartArtisanList(artisanListManaged, out error))
         {
             DuoLog.Error(error);
             Fail();
             return;
         }
 
-        dispatcher.DispatchCollectableTurnIn();
-        State = WorkflowState.Running;
-    }
-
-    private void StartPurchaseOnlyCore()
-    {
-        if (!WorkflowStartValidator.CanStartPurchase(out var error))
-        {
-            DuoLog.Error(error);
-            Fail();
-            return;
-        }
-
-        dispatcher.DispatchPurchaseOnly();
-        State = WorkflowState.Running;
+        dispatcher.DispatchConfiguredWorkflow(artisanListManaged);
+        artisanListManaged = true;
+        State = WorkflowState.MonitoringArtisan;
     }
 
     private static bool IsInsideStartLocation()
@@ -170,9 +137,94 @@ internal sealed class WorkflowOrchestrator : IDisposable
         return HousingReturnPointService.IsInsideHouse() || HousingReturnPointService.IsInsideInn();
     }
 
+    private void HandleMonitoringArtisan()
+    {
+        if (ShouldFinalizeConfiguredWorkflow())
+        {
+            FinalizeConfiguredWorkflow();
+            return;
+        }
+
+        if (ShouldTakeOverForTurnInAndPurchase())
+        {
+            EnterTurnInAndPurchaseLoop();
+            return;
+        }
+    }
+
+    private void HandleLoopingTurnInAndPurchase()
+    {
+        if (ShouldFinalizeLoopAfterTurnInAndPurchase())
+        {
+            FinalizeConfiguredWorkflow();
+            return;
+        }
+
+        if (ShouldTakeOverForTurnInAndPurchase())
+        {
+            EnterTurnInAndPurchaseLoop();
+            return;
+        }
+
+        ResumeCraftingForNextCycle();
+    }
+
+    private void CompleteFinalizingCompletion()
+    {
+        State = WorkflowState.Idle;
+    }
+
+    private void EnterTurnInAndPurchaseLoop()
+    {
+        dispatcher.DispatchLoopTurnInAndPurchase();
+        State = WorkflowState.LoopingTurnInAndPurchase;
+    }
+
+    private void ResumeCraftingForNextCycle()
+    {
+        if (!PrepareStartOrReturn(PendingStartKind.ConfiguredWorkflow))
+            return;
+
+        StartConfiguredWorkflowCore();
+    }
+
+    private void FinalizeConfiguredWorkflow()
+    {
+        artisanListManaged = false;
+        dispatcher.DispatchFinalCompletion();
+        State = WorkflowState.FinalizingCompletion;
+    }
+
+    private static bool ShouldTakeOverForTurnInAndPurchase()
+    {
+        return IsBelowFreeSlotThreshold() && P.Inventory.HasCollectableTurnIns();
+    }
+
+    private static bool IsBelowFreeSlotThreshold()
+    {
+        return C.FreeSlotThreshold > 0 && P.Inventory.GetFreeSlotCount() < C.FreeSlotThreshold;
+    }
+
+    private static bool HasPendingPurchaseWorkRemaining()
+    {
+        return P.PurchaseResolver.HasPending();
+    }
+
+    private static bool ShouldFinalizeLoopAfterTurnInAndPurchase()
+    {
+        return !HasPendingPurchaseWorkRemaining();
+    }
+
+    private static bool ShouldFinalizeConfiguredWorkflow()
+    {
+        return !HasPendingPurchaseWorkRemaining()
+            || (!P.Artisan.IsListRunning() && !ShouldTakeOverForTurnInAndPurchase());
+    }
+
     private void Fail()
     {
         CleanupRuntime(stopArtisan: true);
+        artisanListManaged = false;
         pendingStart = PendingStartKind.None;
         State = WorkflowState.Failed;
     }

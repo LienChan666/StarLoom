@@ -1,21 +1,67 @@
+using ECommons.Reflection;
+using System;
+
 namespace Starloom.GameInterop.IPC;
 
 public static class LifestreamIpc
 {
-    private static readonly IpcCallRunner IpcCallRunner = new(nameof(LifestreamIpc), "Lifestream");
+    private const string PluginName = "Lifestream";
 
     public static bool IsAvailable()
-        => IpcCallRunner.IsAvailable();
+        => DalamudReflector.TryGetDalamudPlugin(PluginName, out _, true, false);
 
     public static void ExecuteCommand(string command)
-        => IpcCallRunner.InvokeAction("Lifestream.ExecuteCommand", command);
+        => InvokeAction("Lifestream.ExecuteCommand", command);
 
     public static bool IsBusy()
-        => IpcCallRunner.InvokeFunc("Lifestream.IsBusy", false);
+        => InvokeFunc("Lifestream.IsBusy", false);
 
     public static void Abort()
-        => IpcCallRunner.InvokeAction("Lifestream.Abort");
+        => InvokeAction("Lifestream.Abort");
 
     public static void EnqueueInnShortcut(int? mode = null)
-        => IpcCallRunner.InvokeAction("Lifestream.EnqueueInnShortcut", mode);
+        => InvokeAction("Lifestream.EnqueueInnShortcut", mode);
+
+    private static TResult InvokeFunc<TResult>(string name, TResult failureResult)
+    {
+        if (!IsAvailable())
+            return failureResult;
+
+        try
+        {
+            return Svc.PluginInterface.GetIpcSubscriber<TResult>(name).InvokeFunc();
+        }
+        catch (Exception)
+        {
+            return failureResult;
+        }
+    }
+
+    private static void InvokeAction(string name)
+    {
+        if (!IsAvailable())
+            return;
+
+        try
+        {
+            Svc.PluginInterface.GetIpcSubscriber<object>(name).InvokeAction();
+        }
+        catch (Exception)
+        {
+        }
+    }
+
+    private static void InvokeAction<T>(string name, T arg)
+    {
+        if (!IsAvailable())
+            return;
+
+        try
+        {
+            Svc.PluginInterface.GetIpcSubscriber<T, object>(name).InvokeAction(arg);
+        }
+        catch (Exception)
+        {
+        }
+    }
 }

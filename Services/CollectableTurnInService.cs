@@ -1,3 +1,4 @@
+using ECommons.Automation.NeoTaskManager;
 using ECommons.UIHelpers.AddonMasterImplementations;
 using FFXIVClientStructs.FFXIV.Client.UI;
 using Lumina.Excel.Sheets;
@@ -9,46 +10,51 @@ using static ECommons.GenericHelpers;
 
 namespace Starloom.Services;
 
-public enum CollectableTurnInState
-{
-    Idle,
-    CheckingInventory,
-    Navigating,
-    WaitingForShop,
-    SelectingJob,
-    SelectingItem,
-    Submitting,
-    WaitingForSubmit,
-    Cleanup,
-    Done,
-    Failed,
-}
-
 public sealed class CollectableTurnInService
 {
     private static readonly TimeSpan ActionDelay = TimeSpan.FromMilliseconds(500);
     private static readonly TimeSpan ShopWindowTimeout = TimeSpan.FromSeconds(15);
     private static readonly TimeSpan SubmitTimeout = TimeSpan.FromSeconds(5);
     private static readonly TimeSpan OvercapCheckWindow = TimeSpan.FromMilliseconds(500);
+    private static readonly TaskManagerConfiguration NavigationTaskConfig = new(
+        (int)TimeSpan.FromMinutes(2).TotalMilliseconds,
+        true,
+        true,
+        false,
+        false,
+        true,
+        true);
 
     private readonly CollectableShopAddon shopAddon = new();
     private readonly Queue<(uint itemId, string name, int count, int jobId)> turnInQueue = new();
 
-    public string? ErrorMessage { get; private set; }
-    public bool IsCompleted => state == CollectableTurnInState.Done;
-    public bool HasFailed => state == CollectableTurnInState.Failed;
-
-    private CollectableTurnInState state = CollectableTurnInState.Idle;
     private uint currentItemId;
     private int currentJobId = -1;
     private int inventoryCountBeforeSubmit;
     private DateTime lastActionAt;
     private DateTime submitStartedAt;
-    private DateTime stateEnteredAt = DateTime.MinValue;
+    private DateTime shopWaitStartedAt;
     private bool navigationStarted;
     private bool overcapDetected;
 
-    public void Start()
+    public void Enqueue()
+    {
+        Reset();
+        P.TM.Enqueue(PrepareQueue, "TurnIn.Prepare");
+        P.TM.Enqueue(NavigateToShop, "TurnIn.Navigate", NavigationTaskConfig);
+        P.TM.Enqueue(WaitForShop, "TurnIn.WaitShop");
+        P.TM.Enqueue(ProcessNextTurnIn, "TurnIn.Next");
+        P.TM.Enqueue(Cleanup, "TurnIn.Cleanup");
+    }
+
+    public void Stop()
+    {
+        shopAddon.CloseWindow();
+        P.Navigation.Stop();
+        Reset();
+    }
+
+    private void Reset()
     {
         turnInQueue.Clear();
         currentItemId = 0;
@@ -56,63 +62,16 @@ public sealed class CollectableTurnInService
         inventoryCountBeforeSubmit = 0;
         lastActionAt = DateTime.MinValue;
         submitStartedAt = DateTime.MinValue;
+        shopWaitStartedAt = DateTime.MinValue;
         navigationStarted = false;
         overcapDetected = false;
-        ErrorMessage = null;
-        TransitionTo(CollectableTurnInState.CheckingInventory);
     }
 
-    public void Stop()
-    {
-        shopAddon.CloseWindow();
-        P.Navigation.Stop();
-        turnInQueue.Clear();
-        ErrorMessage = null;
-        TransitionTo(CollectableTurnInState.Idle);
-    }
-
-    public void Advance()
-    {
-        if (state is CollectableTurnInState.Idle or CollectableTurnInState.Done or CollectableTurnInState.Failed)
-            return;
-
-        switch (state)
-        {
-            case CollectableTurnInState.CheckingInventory:
-                HandleCheckingInventory();
-                return;
-            case CollectableTurnInState.Navigating:
-                HandleNavigating();
-                return;
-            case CollectableTurnInState.WaitingForShop:
-                HandleWaitingForShop();
-                return;
-            case CollectableTurnInState.SelectingJob:
-                HandleSelectingJob();
-                return;
-            case CollectableTurnInState.SelectingItem:
-                HandleSelectingItem();
-                return;
-            case CollectableTurnInState.Submitting:
-                HandleSubmitting();
-                return;
-            case CollectableTurnInState.WaitingForSubmit:
-                HandleWaitingForSubmit();
-                return;
-            case CollectableTurnInState.Cleanup:
-                HandleCleanup();
-                return;
-        }
-    }
-
-    private void HandleCheckingInventory()
+    private bool? PrepareQueue()
     {
         P.Inventory.InvalidateTransientCaches();
         if (C.PreferredCollectableShop == null)
-        {
-            Fail("Collectable shop is not configured.");
-            return;
-        }
+            return Fail("Collectable shop is not configured.");
 
         var collectables = P.Inventory.GetCurrentInventoryItems()
             .Where(item => item.IsCollectable && P.Inventory.IsCollectableTurnInItem(item.BaseItemId))
@@ -125,7 +84,8 @@ public sealed class CollectableTurnInService
             var itemId = group.Key;
             var count = group.Sum(item => (int)item.Quantity);
             var item = Svc.Data.GetExcelSheet<Item>()?.GetRow(itemId);
-            if (item == null || item.Value.RowId == 0) continue;
+            if (item == null || item.Value.RowId == 0)
+                continue;
 
             var itemName = item.Value.Name.ToString();
             var jobId = ItemJobResolver.GetJobIdForItem(itemName, Svc.Data);
@@ -134,28 +94,28 @@ public sealed class CollectableTurnInService
         }
 
         Svc.Log.Debug($"Found {turnInQueue.Count} collectable types to turn in.");
-        if (turnInQueue.Count == 0)
-        {
-            Svc.Log.Debug("No collectables to turn in, skipping.");
-            TransitionTo(CollectableTurnInState.Done);
-            return;
-        }
-
-        TransitionTo(CollectableTurnInState.Navigating);
+        return true;
     }
 
-    private void HandleNavigating()
+    private bool? NavigateToShop()
     {
+        if (turnInQueue.Count == 0)
+            return true;
+
         var shop = C.PreferredCollectableShop!;
         var target = new NavigationTarget(
-            shop.Location, shop.AetheryteId, shop.TerritoryId, 2f,
-            shop.IsLifestreamRequired, shop.LifestreamCommand);
+            shop.Location,
+            shop.AetheryteId,
+            shop.TerritoryId,
+            2f,
+            shop.IsLifestreamRequired,
+            shop.LifestreamCommand);
 
         if (!navigationStarted || P.Navigation.IsIdle)
         {
             P.Navigation.NavigateTo(target);
             navigationStarted = true;
-            return;
+            return false;
         }
 
         P.Navigation.Poll();
@@ -164,101 +124,125 @@ public sealed class CollectableTurnInService
             P.Navigation.Stop();
             navigationStarted = false;
             lastActionAt = DateTime.MinValue;
-            TransitionTo(CollectableTurnInState.WaitingForShop);
-            return;
+            shopWaitStartedAt = DateTime.UtcNow;
+            return true;
         }
 
         if (P.Navigation.HasFailed)
-        {
-            Fail(P.Navigation.ErrorMessage ?? "Could not reach the collectable shop.");
-            return;
-        }
+            return Fail(P.Navigation.ErrorMessage ?? "Could not reach the collectable shop.");
+
+        return false;
     }
 
-    private void HandleWaitingForShop()
+    private bool? WaitForShop()
     {
+        if (turnInQueue.Count == 0)
+            return true;
+
         if (shopAddon.IsReady)
         {
             lastActionAt = DateTime.MinValue;
-            TransitionTo(CollectableTurnInState.SelectingJob);
-            return;
+            return true;
         }
 
-        if (TimedOut(ShopWindowTimeout))
-        {
-            Fail("Timed out while waiting for the collectable window.");
-            return;
-        }
+        if (shopWaitStartedAt == DateTime.MinValue)
+            shopWaitStartedAt = DateTime.UtcNow;
+
+        if ((DateTime.UtcNow - shopWaitStartedAt) > ShopWindowTimeout)
+            return Fail("Timed out while waiting for the collectable window.");
 
         if ((DateTime.UtcNow - lastActionAt) < TimeSpan.FromSeconds(1))
-            return;
+            return false;
 
         var shop = C.PreferredCollectableShop!;
         if (P.NpcInteraction.TryInteract(shop.NpcId))
             lastActionAt = DateTime.UtcNow;
+
+        return false;
     }
 
-    private void HandleSelectingJob()
+    private bool? ProcessNextTurnIn()
     {
-        if (turnInQueue.Count == 0 || overcapDetected) { TransitionTo(CollectableTurnInState.Cleanup); return; }
-        if (!ActionDelayElapsed()) return;
+        if (turnInQueue.Count == 0 || overcapDetected)
+            return true;
+
+        P.TM.BeginStack();
+        P.TM.Enqueue(SelectCurrentJob, "TurnIn.SelectJob");
+        P.TM.Enqueue(SelectCurrentItem, "TurnIn.SelectItem");
+        P.TM.Enqueue(SubmitCurrentItem, "TurnIn.Submit");
+        P.TM.Enqueue(WaitForSubmit, "TurnIn.WaitSubmit");
+        P.TM.Enqueue(ProcessNextTurnIn, "TurnIn.Next");
+        P.TM.InsertStack();
+        return true;
+    }
+
+    private bool? SelectCurrentJob()
+    {
+        if (turnInQueue.Count == 0 || overcapDetected)
+            return true;
+
+        if (!ActionDelayElapsed())
+            return false;
 
         var next = turnInQueue.Peek();
-        if (currentJobId == next.jobId)
+        if (currentJobId != next.jobId)
         {
-            TransitionTo(CollectableTurnInState.SelectingItem);
-            return;
+            shopAddon.SelectJob((uint)next.jobId);
+            currentJobId = next.jobId;
+            lastActionAt = DateTime.UtcNow;
+            return false;
         }
 
-        shopAddon.SelectJob((uint)next.jobId);
-        currentJobId = next.jobId;
-        lastActionAt = DateTime.UtcNow;
-        TransitionTo(CollectableTurnInState.SelectingItem);
+        return true;
     }
 
-    private void HandleSelectingItem()
+    private bool? SelectCurrentItem()
     {
-        if (turnInQueue.Count == 0 || overcapDetected) { TransitionTo(CollectableTurnInState.Cleanup); return; }
-        if (!ActionDelayElapsed()) return;
+        if (turnInQueue.Count == 0 || overcapDetected)
+            return true;
+
+        if (!ActionDelayElapsed())
+            return false;
 
         var next = turnInQueue.Peek();
-        if (currentItemId == next.itemId)
+        if (currentItemId != next.itemId)
         {
-            TransitionTo(CollectableTurnInState.Submitting);
-            return;
+            shopAddon.SelectItemById(next.itemId);
+            currentItemId = next.itemId;
+            lastActionAt = DateTime.UtcNow;
+            return false;
         }
 
-        shopAddon.SelectItemById(next.itemId);
-        currentItemId = next.itemId;
-        lastActionAt = DateTime.UtcNow;
-        TransitionTo(CollectableTurnInState.Submitting);
+        return true;
     }
 
-    private void HandleSubmitting()
+    private bool? SubmitCurrentItem()
     {
-        if (turnInQueue.Count == 0) { TransitionTo(CollectableTurnInState.Cleanup); return; }
-        if (!ActionDelayElapsed()) return;
+        if (turnInQueue.Count == 0 || overcapDetected)
+            return true;
+
+        if (!ActionDelayElapsed())
+            return false;
 
         P.Inventory.InvalidateTransientCaches();
         inventoryCountBeforeSubmit = P.Inventory.GetCollectableInventoryItemCount(currentItemId);
         submitStartedAt = DateTime.UtcNow;
         shopAddon.SubmitItem();
         lastActionAt = DateTime.UtcNow;
-        TransitionTo(CollectableTurnInState.WaitingForSubmit);
+        return true;
     }
 
-    private void HandleWaitingForSubmit()
+    private bool? WaitForSubmit()
     {
-        if (turnInQueue.Count == 0) { TransitionTo(CollectableTurnInState.Cleanup); return; }
+        if (turnInQueue.Count == 0)
+            return true;
 
         if ((DateTime.UtcNow - submitStartedAt) < OvercapCheckWindow)
         {
             if (TryDismissOvercapDialog())
-            {
                 overcapDetected = true;
-                TransitionTo(CollectableTurnInState.Cleanup);
-            }
-            return;
+
+            return overcapDetected ? true : false;
         }
 
         var next = turnInQueue.Peek();
@@ -266,16 +250,13 @@ public sealed class CollectableTurnInService
         if (currentCount >= inventoryCountBeforeSubmit)
         {
             if ((DateTime.UtcNow - submitStartedAt) > SubmitTimeout)
-            {
-                Fail($"Collectable submission did not complete: {next.name}");
-                return;
-            }
-            return;
+                return Fail($"Collectable submission did not complete: {next.name}");
+
+            return false;
         }
 
         var newCount = next.count - 1;
         turnInQueue.Dequeue();
-
         if (newCount > 0)
         {
             var remaining = turnInQueue.ToList();
@@ -292,11 +273,7 @@ public sealed class CollectableTurnInService
         inventoryCountBeforeSubmit = 0;
         submitStartedAt = DateTime.MinValue;
         lastActionAt = DateTime.UtcNow;
-
-        if (turnInQueue.Count > 0)
-            TransitionTo(CollectableTurnInState.SelectingJob);
-        else
-            TransitionTo(CollectableTurnInState.Cleanup);
+        return true;
     }
 
     private unsafe bool TryDismissOvercapDialog()
@@ -308,32 +285,23 @@ public sealed class CollectableTurnInService
         return true;
     }
 
-    private void HandleCleanup()
+    private bool? Cleanup()
     {
         shopAddon.CloseWindow();
         P.Inventory.InvalidateTransientCaches();
         P.Navigation.Stop();
         Svc.Log.Debug("Collectable turn-in completed.");
-        TransitionTo(CollectableTurnInState.Done);
+        return true;
     }
 
-    private void Fail(string message)
+    private bool? Fail(string message)
     {
         Svc.Log.Error($"Collectable turn-in failed: {message}");
-        ErrorMessage = message;
         shopAddon.CloseWindow();
-        TransitionTo(CollectableTurnInState.Failed);
+        P.Navigation.Stop();
+        return null;
     }
 
     private bool ActionDelayElapsed()
         => (DateTime.UtcNow - lastActionAt) >= ActionDelay;
-
-    private bool TimedOut(TimeSpan timeout)
-        => (DateTime.UtcNow - stateEnteredAt) > timeout;
-
-    private void TransitionTo(CollectableTurnInState state)
-    {
-        this.state = state;
-        stateEnteredAt = DateTime.UtcNow;
-    }
 }
