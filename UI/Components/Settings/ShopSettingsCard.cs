@@ -1,10 +1,10 @@
 using Dalamud.Bindings.ImGui;
-using Starloom.Data;
-using Starloom.UI.Components.Shared;
+using StarLoom.Data;
+using StarLoom.UI.Components.Shared;
 using System;
 using System.Linq;
 
-namespace Starloom.UI.Components.Settings;
+namespace StarLoom.UI.Components.Settings;
 
 internal sealed class ShopSettingsCard
 {
@@ -37,7 +37,7 @@ internal sealed class ShopSettingsCard
                 if (ImGui.Selectable(shop.Name, isSelected))
                 {
                     _plugin.Config.PreferredCollectableShop = shop;
-                    _plugin.Config.Save();
+                    _plugin.SaveConfig();
                     currentShop = shop;
                     preview = currentShop.Name;
                 }

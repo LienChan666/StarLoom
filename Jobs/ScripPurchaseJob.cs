@@ -1,14 +1,14 @@
 ﻿using FFXIVClientStructs.FFXIV.Component.GUI;
-using Starloom.Addons;
-using Starloom.Core;
-using Starloom.Data;
-using Starloom.Services;
+using StarLoom.Addons;
+using StarLoom.Core;
+using StarLoom.Data;
+using StarLoom.Services;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using static ECommons.GenericHelpers;
 
-namespace Starloom.Jobs;
+namespace StarLoom.Jobs;
 
 public sealed unsafe class ScripPurchaseJob : IAutomationJob
 {
@@ -33,6 +33,7 @@ public sealed unsafe class ScripPurchaseJob : IAutomationJob
     private readonly TimeSpan _actionDelay = TimeSpan.FromMilliseconds(500);
     private readonly TimeSpan _purchaseTimeout = TimeSpan.FromSeconds(5);
     private readonly TimeSpan _shopWindowTimeout = TimeSpan.FromSeconds(15);
+    private readonly StateMachine<PurchaseState> _stateMachine;
 
     private JobContext? _context;
     private PurchaseState _state = PurchaseState.Idle;
@@ -48,6 +49,22 @@ public sealed unsafe class ScripPurchaseJob : IAutomationJob
     public string Id => "scrip-purchase";
     public string StatusText { get; private set; } = "空闲";
     public JobStatus Status { get; private set; } = JobStatus.Idle;
+
+    public ScripPurchaseJob()
+    {
+        _stateMachine = new StateMachine<PurchaseState>(PurchaseState.Idle, state => _state = state);
+        _stateMachine.Configure(PurchaseState.PreparingQueue, PreparePurchaseQueue);
+        _stateMachine.Configure(PurchaseState.MovingToShop, MoveToScripShop);
+        _stateMachine.Configure(PurchaseState.WaitingForShopWindow, WaitForScripShopWindow);
+        _stateMachine.Configure(PurchaseState.SelectingPage, SelectScripShopPage);
+        _stateMachine.Configure(PurchaseState.SelectingSubPage, SelectScripShopSubPage);
+        _stateMachine.Configure(PurchaseState.SelectingItem, SelectScripShopItem);
+        _stateMachine.Configure(PurchaseState.PurchasingItem, PurchaseScripShopItem);
+        _stateMachine.Configure(PurchaseState.WaitingForPurchaseComplete, WaitForPurchaseComplete);
+        _stateMachine.Configure(PurchaseState.CheckingForMore, CheckForMorePurchases);
+        _stateMachine.Configure(PurchaseState.Completed, Complete);
+        _stateMachine.Configure(PurchaseState.Failed, () => Fail(StatusText));
+    }
 
     public bool CanStart() => true;
 
@@ -76,42 +93,7 @@ public sealed unsafe class ScripPurchaseJob : IAutomationJob
 
         try
         {
-            switch (_state)
-            {
-                case PurchaseState.PreparingQueue:
-                    PreparePurchaseQueue();
-                    break;
-                case PurchaseState.MovingToShop:
-                    MoveToScripShop();
-                    break;
-                case PurchaseState.WaitingForShopWindow:
-                    WaitForScripShopWindow();
-                    break;
-                case PurchaseState.SelectingPage:
-                    SelectScripShopPage();
-                    break;
-                case PurchaseState.SelectingSubPage:
-                    SelectScripShopSubPage();
-                    break;
-                case PurchaseState.SelectingItem:
-                    SelectScripShopItem();
-                    break;
-                case PurchaseState.PurchasingItem:
-                    PurchaseScripShopItem();
-                    break;
-                case PurchaseState.WaitingForPurchaseComplete:
-                    WaitForPurchaseComplete();
-                    break;
-                case PurchaseState.CheckingForMore:
-                    CheckForMorePurchases();
-                    break;
-                case PurchaseState.Completed:
-                    Complete();
-                    break;
-                case PurchaseState.Failed:
-                    Fail(StatusText);
-                    break;
-            }
+            _stateMachine.Update();
         }
         catch (Exception ex)
         {
@@ -291,8 +273,6 @@ public sealed unsafe class ScripPurchaseJob : IAutomationJob
             return;
         }
 
-        ECommons.DalamudServices.Svc.Log.Information($"[ScripPurchaseJob] Purchasing candidate '{next.name}' with currencyItemId={next.currencyItemId}, scrips={scrips}, reserve={_context.Config.ReserveScripAmount}, cost={next.cost}, remaining={next.remaining}, amount={amount}");
-
         var knownShopItems = ScripShopItemManager.ShopItems.Count > 0
             ? ScripShopItemManager.ShopItems
             : _context.Config.ScripShopItems.Select(item => item.Item).ToList();
@@ -400,8 +380,8 @@ public sealed unsafe class ScripPurchaseJob : IAutomationJob
 
     private void TransitionTo(PurchaseState state)
     {
-        _state = state;
-        _stateEnteredAt = DateTime.UtcNow;
+        _stateMachine.TransitionTo(state);
+        _stateEnteredAt = _stateMachine.StateEnteredAt;
     }
 
     private CollectableShop GetPreferredShop()

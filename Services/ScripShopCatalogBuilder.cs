@@ -2,16 +2,23 @@ using ECommons.DalamudServices;
 using FFXIVClientStructs.FFXIV.Client.Game;
 using Lumina.Excel;
 using Lumina.Excel.Sheets;
-using Starloom.Data;
+using StarLoom.Data;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 
-namespace Starloom.Services;
+namespace StarLoom.Services;
 
 public sealed unsafe class ScripShopCatalogBuilder
 {
     private const uint ScripInclusionShopId = 3801094;
+
+    public string GetCatalogVersion()
+    {
+        var inclusionShopCount = Svc.Data.GetExcelSheet<InclusionShop>()?.LongCount() ?? 0;
+        var inclusionShopSeriesCount = Svc.Data.GetSubrowExcelSheet<InclusionShopSeries>()?.LongCount() ?? 0;
+        return $"{ScripInclusionShopId}:{inclusionShopCount}:{inclusionShopSeriesCount}";
+    }
 
     public List<ScripShopItem> BuildCatalog()
     {

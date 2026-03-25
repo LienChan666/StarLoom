@@ -1,12 +1,12 @@
 ﻿using ECommons.DalamudServices;
 using FFXIVClientStructs.FFXIV.Component.GUI;
-using Starloom.Data;
+using StarLoom.Data;
 using System.Collections.Generic;
 using System.Linq;
 using static ECommons.GenericHelpers;
 using ValueType = FFXIVClientStructs.FFXIV.Component.GUI.ValueType;
 
-namespace Starloom.Addons;
+namespace StarLoom.Addons;
 
 public sealed unsafe class ScripShopAddon
 {
@@ -87,11 +87,9 @@ public sealed unsafe class ScripShopAddon
         var shopItem = shopItems.FirstOrDefault(x => x.ItemId == itemId && x.Page == _currentPage && x.SubPage == _currentSubPage);
         if (shopItem == null)
         {
-            Svc.Log.Error($"[ScripShopAddon] Item ID {itemId} not found in current page={_currentPage} subpage={_currentSubPage}");
             return false;
         }
 
-        Svc.Log.Information($"[ScripShopAddon] Visible list scanning disabled, falling back to cached index for '{itemName}' (index={shopItem.Index}, page={_currentPage}, subpage={_currentSubPage})");
         var selectItem = stackalloc AtkValue[]
         {
             new() { Type = ValueType.Int, Int = 14 },
@@ -112,7 +110,6 @@ public sealed unsafe class ScripShopAddon
         if (!hasExpectedItemId && !ContainsExpectedText(atkValueTexts, expectedItemName))
         {
             var visibleTexts = GetVisibleTexts(addon);
-            Svc.Log.Error($"[ScripShopAddon] Purchase dialog item mismatch, expected '{expectedItemName}' ({expectedItemId}), atkValues[{addon->AtkValuesCount}]: {string.Join(" | ", atkValueDiagnostics)}, visible texts: {string.Join(" | ", visibleTexts)}");
             addon->Close(true);
             return PurchaseDialogResult.MismatchedItem;
         }

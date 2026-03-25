@@ -1,7 +1,7 @@
 using Dalamud.Bindings.ImGui;
-using Starloom.Data;
+using StarLoom.Data;
 
-namespace Starloom.UI.Components.Shared;
+namespace StarLoom.UI.Components.Shared;
 
 internal static class ScripShopUiHelpers
 {

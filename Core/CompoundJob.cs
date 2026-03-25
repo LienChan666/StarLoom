@@ -1,6 +1,6 @@
 using System.Collections.Generic;
 
-namespace Starloom.Core;
+namespace StarLoom.Core;
 
 public sealed class CompoundJob : IAutomationJob
 {

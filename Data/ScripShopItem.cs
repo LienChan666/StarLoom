@@ -1,6 +1,6 @@
 using System.Text.Json.Serialization;
 
-namespace Starloom.Data;
+namespace StarLoom.Data;
 
 public class ScripShopItem
 {
@@ -19,5 +19,6 @@ public class ScripShopItem
     public int TierRank { get; set; }
 
     [JsonIgnore]
+    [Newtonsoft.Json.JsonIgnore]
     public uint ItemId => ItemID;
 }

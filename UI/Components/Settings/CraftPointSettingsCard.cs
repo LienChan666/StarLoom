@@ -1,13 +1,13 @@
 using Dalamud.Bindings.ImGui;
-using Starloom.Data;
-using Starloom.Services;
-using Starloom.UI.Components.Shared;
+using StarLoom.Data;
+using StarLoom.Services;
+using StarLoom.UI.Components.Shared;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Numerics;
 
-namespace Starloom.UI.Components.Settings;
+namespace StarLoom.UI.Components.Settings;
 
 internal sealed class CraftPointSettingsCard
 {
@@ -69,7 +69,7 @@ internal sealed class CraftPointSettingsCard
                 if (ImGui.Selectable(point.DisplayName, isSelected))
                 {
                     _plugin.Config.DefaultCraftReturnPoint = ClonePoint(point);
-                    _plugin.Config.Save();
+                    _plugin.SaveConfig();
                 }
 
                 if (isSelected)

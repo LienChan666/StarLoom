@@ -4,7 +4,7 @@ using Lumina.Excel.Sheets;
 using static ECommons.GenericHelpers;
 using ValueType = FFXIVClientStructs.FFXIV.Component.GUI.ValueType;
 
-namespace Starloom.Addons;
+namespace StarLoom.Addons;
 
 public sealed unsafe class CollectableShopAddon
 {
@@ -42,7 +42,6 @@ public sealed unsafe class CollectableShopAddon
         var index = turnIn.GetItemIndexOf(itemName);
         if (index == -1)
         {
-            Svc.Log.Error($"[CollectableShopAddon] Item '{itemName}' not found in current collectable tab");
             return;
         }
 

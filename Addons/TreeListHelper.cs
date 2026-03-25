@@ -5,7 +5,7 @@ using FFXIVClientStructs.Interop;
 using FFXIVClientStructs.STD;
 using System;
 
-namespace Starloom.Addons;
+namespace StarLoom.Addons;
 
 public abstract unsafe class TreeListHelper
 {
@@ -89,7 +89,6 @@ public unsafe class TurninWindowHelper(AtkUnitBase* addon) : TreeListHelper(addo
             itemCount++;
         }
 
-        Svc.Log.Debug($"[TurninWindowHelper] No match found for '{label}'");
         return -1;
     }
 }

@@ -1,10 +1,10 @@
 using Dalamud.Bindings.ImGui;
-using Starloom.UI.Components.Shared;
+using StarLoom.UI.Components.Shared;
 using System;
 using System.Linq;
 using System.Numerics;
 
-namespace Starloom.UI.Components.Home;
+namespace StarLoom.UI.Components.Home;
 
 internal sealed class SelectedItemsPane
 {
@@ -17,7 +17,7 @@ internal sealed class SelectedItemsPane
 
     public void Draw(Vector2 size)
     {
-        using var _ = GamePanelStyle.BeginPanel("##SelectedPane", size, GamePanelStyle.AccentSoft);
+        using var _ = GamePanelStyle.BeginPanel("##SelectedPane", size, GamePanelStyle.BorderSubtle);
 
         var totalQuantity = _plugin.Config.ScripShopItems.Sum(item => item.Quantity);
         GamePanelStyle.DrawPanelHeader("已选兑换列表", $"共 {_plugin.Config.ScripShopItems.Count} 项，目标数量合计 {totalQuantity}。");
@@ -37,11 +37,13 @@ internal sealed class SelectedItemsPane
             | ImGuiTableFlags.Resizable
             | ImGuiTableFlags.SizingStretchProp;
 
+        GamePanelStyle.PushTableStyle();
+
         if (ImGui.BeginTable("##SelectedTable", 6, tableFlags))
         {
             ImGui.TableSetupColumn("名称", ImGuiTableColumnFlags.WidthStretch, 0.34f);
             ImGui.TableSetupColumn("工票", ImGuiTableColumnFlags.WidthStretch, 0.18f);
-            ImGui.TableSetupColumn("成本", ImGuiTableColumnFlags.WidthFixed, 60f);
+            ImGui.TableSetupColumn("单价", ImGuiTableColumnFlags.WidthFixed, 60f);
             ImGui.TableSetupColumn("目标数量", ImGuiTableColumnFlags.WidthFixed, 100f);
             ImGui.TableSetupColumn("排序", ImGuiTableColumnFlags.WidthFixed, 78f);
             ImGui.TableSetupColumn("操作", ImGuiTableColumnFlags.WidthFixed, 64f);
@@ -65,29 +67,34 @@ internal sealed class SelectedItemsPane
 
                 ImGui.TableSetColumnIndex(3);
                 var quantity = item.Quantity;
-                var previousQuantity = quantity;
                 ImGui.SetNextItemWidth(-1);
                 if (ImGui.InputInt("##Quantity", ref quantity, 0, 0))
                     item.Quantity = Math.Max(1, quantity);
 
-                if (ImGui.IsItemDeactivatedAfterEdit() && item.Quantity != previousQuantity)
-                    _plugin.Config.Save();
+                if (ImGui.IsItemDeactivatedAfterEdit())
+                    _plugin.SaveConfig();
 
                 ImGui.TableSetColumnIndex(4);
+                ImGui.PushStyleColor(ImGuiCol.Text, GamePanelStyle.TextSecond);
                 ImGui.BeginDisabled(index == 0);
-                if (ImGui.SmallButton("↑"))
+                if (ImGui.SmallButton("\u2191"))
                     moveUpIndex = index;
                 ImGui.EndDisabled();
 
                 ImGui.SameLine();
                 ImGui.BeginDisabled(index == _plugin.Config.ScripShopItems.Count - 1);
-                if (ImGui.SmallButton("↓"))
+                if (ImGui.SmallButton("\u2193"))
                     moveDownIndex = index;
                 ImGui.EndDisabled();
+                ImGui.PopStyleColor();
 
                 ImGui.TableSetColumnIndex(5);
-                if (ImGui.SmallButton("删除"))
+                ImGui.PushStyleColor(ImGuiCol.Button, GamePanelStyle.Tint(GamePanelStyle.Danger, 0.3f));
+                ImGui.PushStyleColor(ImGuiCol.ButtonHovered, GamePanelStyle.Tint(GamePanelStyle.Danger, 0.5f));
+                ImGui.PushStyleColor(ImGuiCol.ButtonActive, GamePanelStyle.Tint(GamePanelStyle.Danger, 0.7f));
+                if (ImGui.SmallButton("\u00d7"))
                     removeIndex = index;
+                ImGui.PopStyleColor(3);
 
                 ImGui.PopID();
             }
@@ -95,22 +102,24 @@ internal sealed class SelectedItemsPane
             ImGui.EndTable();
         }
 
+        GamePanelStyle.PopTableStyle();
+
         if (removeIndex.HasValue)
         {
             _plugin.Config.ScripShopItems.RemoveAt(removeIndex.Value);
-            _plugin.Config.Save();
+            _plugin.SaveConfig();
         }
 
         if (moveUpIndex.HasValue)
         {
             SwapItems(moveUpIndex.Value, moveUpIndex.Value - 1);
-            _plugin.Config.Save();
+            _plugin.SaveConfig();
         }
 
         if (moveDownIndex.HasValue)
         {
             SwapItems(moveDownIndex.Value, moveDownIndex.Value + 1);
-            _plugin.Config.Save();
+            _plugin.SaveConfig();
         }
     }
 

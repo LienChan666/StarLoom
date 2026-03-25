@@ -2,7 +2,7 @@ using Dalamud.Interface.Windowing;
 using ECommons.DalamudServices;
 using System;
 
-namespace Starloom.UI;
+namespace StarLoom.UI;
 
 public sealed class PluginUi : IDisposable
 {
@@ -47,7 +47,7 @@ public sealed class PluginUi : IDisposable
             return;
 
         _plugin.Config.ShowStatusOverlay = isVisible;
-        _plugin.Config.Save();
+        _plugin.SaveConfig();
     }
 
     private void Draw()
@@ -58,7 +58,7 @@ public sealed class PluginUi : IDisposable
             return;
 
         _plugin.Config.ShowStatusOverlay = _statusOverlay.IsOpen;
-        _plugin.Config.Save();
+        _plugin.SaveConfig();
     }
 
     public void Dispose()

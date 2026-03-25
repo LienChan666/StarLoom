@@ -1,57 +1,20 @@
-using ECommons.DalamudServices;
-using System;
 using System.Numerics;
 
-namespace Starloom.IPC;
+namespace StarLoom.IPC;
 
 public static class VNavmeshIPC
 {
+    private static readonly IpcCallRunner IpcCallRunner = new(nameof(VNavmeshIPC), "vnavmesh");
+
     public static bool IsAvailable()
-        => ExternalPluginDetector.IsAvailable("vnavmesh");
+        => IpcCallRunner.IsAvailable();
 
     public static bool PathfindAndMoveTo(Vector3 destination, bool fly)
-    {
-        if (!IsAvailable())
-            return false;
-
-        try
-        {
-            return Svc.PluginInterface.GetIpcSubscriber<Vector3, bool, bool>("vnavmesh.SimpleMove.PathfindAndMoveTo").InvokeFunc(destination, fly);
-        }
-        catch (Exception ex)
-        {
-            Svc.Log.Error($"[VNavmeshIPC] PathfindAndMoveTo failed: {ex}");
-            return false;
-        }
-    }
+        => IpcCallRunner.InvokeFunc("vnavmesh.SimpleMove.PathfindAndMoveTo", destination, fly, false);
 
     public static bool IsPathRunning()
-    {
-        if (!IsAvailable())
-            return false;
-
-        try
-        {
-            return Svc.PluginInterface.GetIpcSubscriber<bool>("vnavmesh.Path.IsRunning").InvokeFunc();
-        }
-        catch
-        {
-            return false;
-        }
-    }
+        => IpcCallRunner.InvokeFunc("vnavmesh.Path.IsRunning", false);
 
     public static void Stop()
-    {
-        if (!IsAvailable())
-            return;
-
-        try
-        {
-            Svc.PluginInterface.GetIpcSubscriber<object>("vnavmesh.Path.Stop").InvokeAction();
-        }
-        catch (Exception ex)
-        {
-            Svc.Log.Error($"[VNavmeshIPC] Stop failed: {ex}");
-        }
-    }
+        => IpcCallRunner.InvokeAction("vnavmesh.Path.Stop");
 }

@@ -1,10 +1,11 @@
 using ECommons.DalamudServices;
-using Starloom.Core;
-using Starloom.IPC;
+using StarLoom.Core;
+using StarLoom.IPC;
+using StarLoom.Services.Interfaces;
 using System;
 using System.Numerics;
 
-namespace Starloom.Services;
+namespace StarLoom.Services;
 
 public record NavigationTarget(
     Vector3 Location,
@@ -14,9 +15,10 @@ public record NavigationTarget(
     bool IsLifestreamRequired = false,
     string LifestreamCommand = "");
 
-public sealed class NavigationService
+public sealed class NavigationService : INavigationService
 {
     private static readonly TimeSpan LocalActionReadyStableDuration = TimeSpan.FromMilliseconds(500);
+    private readonly StateMachine<NavigationState> _stateMachine;
 
     public enum NavigationState
     {
@@ -41,6 +43,17 @@ public sealed class NavigationService
     private bool _teleportAttempted;
     private bool _lifestreamAttempted;
 
+    public NavigationService()
+    {
+        _stateMachine = new StateMachine<NavigationState>(NavigationState.Idle, state => State = state);
+        _stateMachine.Configure(NavigationState.Teleporting, () => HandleTeleport(GetCurrentDistance()));
+        _stateMachine.Configure(NavigationState.WaitingForTeleport, HandleWaitingForTeleport);
+        _stateMachine.Configure(NavigationState.UsingLifestream, () => HandleLifestream(GetCurrentDistance()));
+        _stateMachine.Configure(NavigationState.WaitingForLifestream, HandleWaitingForLifestream);
+        _stateMachine.Configure(NavigationState.Pathfinding, HandlePathfinding);
+        _stateMachine.Configure(NavigationState.WaitingForArrival, () => HandleWaitForArrival(GetCurrentDistance()));
+    }
+
     public void NavigateTo(NavigationTarget target)
     {
         _target = target;
@@ -50,13 +63,13 @@ public sealed class NavigationService
         _movementStartTime = DateTime.MinValue;
         _localActionReadyAt = null;
         ErrorMessage = null;
-        State = NavigationState.Teleporting;
+        TransitionTo(NavigationState.Teleporting);
     }
 
     public void Stop()
     {
         VNavmeshIPC.Stop();
-        State = NavigationState.Idle;
+        TransitionTo(NavigationState.Idle);
         _target = null;
         _localActionReadyAt = null;
         ErrorMessage = null;
@@ -69,60 +82,60 @@ public sealed class NavigationService
 
         if (_target == null)
         {
-            State = NavigationState.Failed;
+            Fail("导航目标为空。");
             return;
         }
 
         if (!HasStableLocalControl())
             return;
 
-        var playerPos = Svc.Objects.LocalPlayer?.Position ?? Vector3.Zero;
-        if (playerPos == Vector3.Zero)
-            return;
-
-        var distance = Svc.ClientState.TerritoryType == _target.TerritoryId
-            ? Vector3.Distance(playerPos, _target.Location)
-            : float.MaxValue;
-
+        var distance = GetCurrentDistance();
         if (Svc.ClientState.TerritoryType == _target.TerritoryId && distance <= _target.ArrivalDistance)
         {
             VNavmeshIPC.Stop();
-            State = NavigationState.Arrived;
+            TransitionTo(NavigationState.Arrived);
             return;
         }
 
-        switch (State)
-        {
-            case NavigationState.Teleporting:
-                HandleTeleport(distance);
-                break;
-            case NavigationState.WaitingForTeleport:
-                if ((DateTime.UtcNow - _lastAction) > TimeSpan.FromSeconds(5))
-                    State = NavigationState.UsingLifestream;
-                break;
-            case NavigationState.UsingLifestream:
-                HandleLifestream(distance);
-                break;
-            case NavigationState.WaitingForLifestream:
-                if (!LifestreamIPC.IsBusy())
-                    State = NavigationState.Pathfinding;
-                break;
-            case NavigationState.Pathfinding:
-                HandlePathfinding();
-                break;
-            case NavigationState.WaitingForArrival:
-                HandleWaitForArrival(distance);
-                break;
-        }
+        _stateMachine.Update();
+    }
+
+    private float GetCurrentDistance()
+    {
+        if (_target == null)
+            return float.MaxValue;
+
+        var playerPos = Svc.Objects.LocalPlayer?.Position ?? Vector3.Zero;
+        if (playerPos == Vector3.Zero)
+            return float.MaxValue;
+
+        return Svc.ClientState.TerritoryType == _target.TerritoryId
+            ? Vector3.Distance(playerPos, _target.Location)
+            : float.MaxValue;
+    }
+
+    private void HandleWaitingForTeleport()
+    {
+        if ((DateTime.UtcNow - _lastAction) > TimeSpan.FromSeconds(5))
+            TransitionTo(NavigationState.UsingLifestream);
+    }
+
+    private void HandleWaitingForLifestream()
+    {
+        if (!LifestreamIPC.IsBusy())
+            TransitionTo(NavigationState.Pathfinding);
     }
 
     private void HandleTeleport(float distance)
     {
-        if (Svc.ClientState.TerritoryType == _target!.TerritoryId)
+        if (_target == null)
+            return;
+
+        if (Svc.ClientState.TerritoryType == _target.TerritoryId)
         {
-            State = _target.IsLifestreamRequired && !_lifestreamAttempted && distance > 40f
+            TransitionTo(_target.IsLifestreamRequired && !_lifestreamAttempted && distance > 40f
                 ? NavigationState.UsingLifestream
-                : NavigationState.Pathfinding;
+                : NavigationState.Pathfinding);
             return;
         }
 
@@ -136,7 +149,7 @@ public sealed class NavigationService
 
             _teleportAttempted = true;
             _lastAction = DateTime.UtcNow;
-            State = NavigationState.WaitingForTeleport;
+            TransitionTo(NavigationState.WaitingForTeleport);
         }
     }
 
@@ -147,7 +160,7 @@ public sealed class NavigationService
 
         if (!_target.IsLifestreamRequired || distance <= 40f)
         {
-            State = NavigationState.Pathfinding;
+            TransitionTo(NavigationState.Pathfinding);
             return;
         }
 
@@ -160,14 +173,17 @@ public sealed class NavigationService
         LifestreamIPC.ExecuteCommand(_target.LifestreamCommand);
         _lifestreamAttempted = true;
         _lastAction = DateTime.UtcNow;
-        State = NavigationState.WaitingForLifestream;
+        TransitionTo(NavigationState.WaitingForLifestream);
     }
 
     private void HandlePathfinding()
     {
+        if (_target == null)
+            return;
+
         if (!VNavmeshIPC.IsPathRunning())
         {
-            if (!VNavmeshIPC.PathfindAndMoveTo(_target!.Location, false))
+            if (!VNavmeshIPC.PathfindAndMoveTo(_target.Location, false))
             {
                 Fail("寻路失败");
                 return;
@@ -177,21 +193,24 @@ public sealed class NavigationService
         }
 
         _lastAction = DateTime.UtcNow;
-        State = NavigationState.WaitingForArrival;
+        TransitionTo(NavigationState.WaitingForArrival);
     }
 
     private void HandleWaitForArrival(float distance)
     {
-        if (Svc.ClientState.TerritoryType != _target!.TerritoryId)
+        if (_target == null)
+            return;
+
+        if (Svc.ClientState.TerritoryType != _target.TerritoryId)
         {
-            State = NavigationState.Teleporting;
+            TransitionTo(NavigationState.Teleporting);
             return;
         }
 
         if (distance <= _target.ArrivalDistance)
         {
             VNavmeshIPC.Stop();
-            State = NavigationState.Arrived;
+            TransitionTo(NavigationState.Arrived);
             return;
         }
 
@@ -213,8 +232,11 @@ public sealed class NavigationService
         ErrorMessage = message;
         _localActionReadyAt = null;
         VNavmeshIPC.Stop();
-        State = NavigationState.Failed;
+        TransitionTo(NavigationState.Failed);
     }
+
+    private void TransitionTo(NavigationState state)
+        => _stateMachine.TransitionTo(state);
 
     private bool HasStableLocalControl()
     {

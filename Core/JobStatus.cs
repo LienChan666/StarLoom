@@ -1,4 +1,4 @@
-namespace Starloom.Core;
+namespace StarLoom.Core;
 
 public enum JobStatus
 {

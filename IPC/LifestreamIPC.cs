@@ -1,70 +1,21 @@
-using ECommons.DalamudServices;
-using System;
-
-namespace Starloom.IPC;
+namespace StarLoom.IPC;
 
 public static class LifestreamIPC
 {
+    private static readonly IpcCallRunner IpcCallRunner = new(nameof(LifestreamIPC), "Lifestream");
+
     public static bool IsAvailable()
-        => ExternalPluginDetector.IsAvailable("Lifestream");
+        => IpcCallRunner.IsAvailable();
 
     public static void ExecuteCommand(string command)
-    {
-        if (!IsAvailable())
-            return;
-
-        try
-        {
-            Svc.PluginInterface.GetIpcSubscriber<string, object>("Lifestream.ExecuteCommand").InvokeAction(command);
-        }
-        catch (Exception ex)
-        {
-            Svc.Log.Error($"[LifestreamIPC] ExecuteCommand failed: {ex}");
-        }
-    }
+        => IpcCallRunner.InvokeAction("Lifestream.ExecuteCommand", command);
 
     public static bool IsBusy()
-    {
-        if (!IsAvailable())
-            return false;
-
-        try
-        {
-            return Svc.PluginInterface.GetIpcSubscriber<bool>("Lifestream.IsBusy").InvokeFunc();
-        }
-        catch
-        {
-            return false;
-        }
-    }
+        => IpcCallRunner.InvokeFunc("Lifestream.IsBusy", false);
 
     public static void Abort()
-    {
-        if (!IsAvailable())
-            return;
-
-        try
-        {
-            Svc.PluginInterface.GetIpcSubscriber<object>("Lifestream.Abort").InvokeAction();
-        }
-        catch (Exception ex)
-        {
-            Svc.Log.Error($"[LifestreamIPC] Abort failed: {ex}");
-        }
-    }
+        => IpcCallRunner.InvokeAction("Lifestream.Abort");
 
     public static void EnqueueInnShortcut(int? mode = null)
-    {
-        if (!IsAvailable())
-            return;
-
-        try
-        {
-            Svc.PluginInterface.GetIpcSubscriber<int?, object>("Lifestream.EnqueueInnShortcut").InvokeAction(mode);
-        }
-        catch (Exception ex)
-        {
-            Svc.Log.Error($"[LifestreamIPC] EnqueueInnShortcut failed: {ex}");
-        }
-    }
+        => IpcCallRunner.InvokeAction("Lifestream.EnqueueInnShortcut", mode);
 }

@@ -6,14 +6,14 @@ using ECommons.ExcelServices.TerritoryEnumeration;
 using FFXIVClientStructs.FFXIV.Client.Game;
 using FFXIVClientStructs.FFXIV.Client.Game.UI;
 using Lumina.Excel.Sheets;
-using Starloom.Data;
-using Starloom.IPC;
+using StarLoom.Data;
+using StarLoom.IPC;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Numerics;
 
-namespace Starloom.Services;
+namespace StarLoom.Services;
 
 public static unsafe class HousingReturnPointService
 {

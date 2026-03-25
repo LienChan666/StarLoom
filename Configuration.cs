@@ -1,10 +1,9 @@
 using Dalamud.Configuration;
-using ECommons.DalamudServices;
-using Starloom.Data;
+using StarLoom.Data;
 using System;
 using System.Collections.Generic;
 
-namespace Starloom;
+namespace StarLoom;
 
 [Serializable]
 public class Configuration : IPluginConfiguration
@@ -39,6 +38,4 @@ public class Configuration : IPluginConfiguration
 
         return updated;
     }
-
-    public void Save() => Svc.PluginInterface.SavePluginConfig(this);
 }

@@ -2,7 +2,7 @@ using Dalamud.Plugin.Services;
 using Lumina.Excel.Sheets;
 using System.Linq;
 
-namespace Starloom.Services;
+namespace StarLoom.Services;
 
 public static class ItemJobResolver
 {

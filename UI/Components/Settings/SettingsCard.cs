@@ -1,8 +1,9 @@
 using Dalamud.Bindings.ImGui;
-using Starloom.UI.Components.Shared;
+using StarLoom.UI.Components.Shared;
 using System;
+using System.Numerics;
 
-namespace Starloom.UI.Components.Settings;
+namespace StarLoom.UI.Components.Settings;
 
 internal static class SettingsCard
 {
@@ -10,6 +11,7 @@ internal static class SettingsCard
     {
         ImGui.PushID(id);
         GamePanelStyle.DrawPanelHeader(title, description);
+        ImGui.Dummy(new Vector2(0, GamePanelStyle.Spacing.Xs));
         drawContent();
         ImGui.PopID();
     }

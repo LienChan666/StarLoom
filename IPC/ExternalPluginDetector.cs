@@ -2,7 +2,7 @@ using ECommons.DalamudServices;
 using ECommons.Reflection;
 using System;
 
-namespace Starloom.IPC;
+namespace StarLoom.IPC;
 
 internal static class ExternalPluginDetector
 {
@@ -15,9 +15,8 @@ internal static class ExternalPluginDetector
         {
             return DalamudReflector.TryGetDalamudPlugin(internalName, out _, true, false);
         }
-        catch (Exception ex)
+        catch (Exception)
         {
-            Svc.Log.Error($"[ExternalPluginDetector] Failed to query plugin {internalName}: {ex.Message}");
             return false;
         }
     }
