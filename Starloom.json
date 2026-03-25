@@ -4,7 +4,7 @@
     "Punchline":  "收藏品提交与工票物品购买助手。",
     "Description":  "用于处理收藏品提交、工票物品购买与制作后流程衔接。",
     "InternalName":  "Starloom",
-    "AssemblyVersion":  "0.1.0.0",
+    "AssemblyVersion":  "0.1.1.0",
     "RepoUrl":  "https://github.com/LienChan666/StarLoom",
     "ApplicableVersion":  "any",
     "DalamudApiLevel":  14
