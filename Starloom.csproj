@@ -4,7 +4,7 @@
     <Version>0.1.0.0</Version>
     <AssemblyVersion>$(Version)</AssemblyVersion>
     <FileVersion>$(Version)</FileVersion>
-    <Description>Automation companion for FFXIV crafting workflows.</Description>
+    <Description>Collectable turn-in and scrip item purchase helper for FFXIV crafting workflows.</Description>
   </PropertyGroup>
 
   <PropertyGroup>
@@ -16,8 +16,8 @@
     <RootNamespace>Starloom</RootNamespace>
     <PackageId>Starloom</PackageId>
     <Product>Starloom</Product>
-    <Author>YLC</Author>
-    <Authors>YLC</Authors>
+    <Author>KindSheep</Author>
+    <Authors>KindSheep</Authors>
   </PropertyGroup>
 
   <PropertyGroup>
@@ -34,15 +34,6 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <Compile Remove="_temp\**\*.cs" />
-    <Compile Remove="Starloom.Tests\**\*.cs" />
-    <EmbeddedResource Remove="_temp\**\*" />
-    <EmbeddedResource Remove="Starloom.Tests\**\*" />
-    <None Remove="_temp\**\*" />
-    <None Remove="Starloom.Tests\**\*" />
-    <Content Remove="_temp\**\*" />
-    <Content Remove="Starloom.Tests\**\*" />
-
     <None Update="Starloom.json">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
