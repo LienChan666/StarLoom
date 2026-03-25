@@ -1,0 +1,232 @@
+name: Publish Plugin Repository
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: publish-plugin-repo
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    env:
+      PLUGIN_NAME: Starloom
+      PUBLISH_OWNER: LienChan666
+      PUBLISH_REPO: DalamudPlugins
+      PUBLISH_BRANCH: master
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Check version change
+        id: version_check
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json
+          import os
+          import pathlib
+          import re
+          import subprocess
+
+          def read_version(text: str) -> str:
+              match = re.search(r"<Version>([^<]+)</Version>", text)
+              if not match:
+                  raise SystemExit("Version not found in Starloom.csproj")
+              return match.group(1).strip()
+
+          csproj_path = pathlib.Path("Starloom.csproj")
+          current_text = csproj_path.read_text(encoding="utf-8")
+          current_version = read_version(current_text)
+
+          event_name = os.environ["GITHUB_EVENT_NAME"]
+          changed = event_name == "workflow_dispatch"
+          previous_version = ""
+
+          if not changed:
+              event_path = os.environ.get("GITHUB_EVENT_PATH", "")
+              before = ""
+              if event_path:
+                  payload = json.loads(pathlib.Path(event_path).read_text(encoding="utf-8"))
+                  before = payload.get("before", "")
+              if before and before != "0000000000000000000000000000000000000000":
+                  try:
+                      previous_text = subprocess.check_output(
+                          ["git", "show", f"{before}:Starloom.csproj"],
+                          text=True,
+                      )
+                      previous_version = read_version(previous_text)
+                  except subprocess.CalledProcessError:
+                      previous_version = ""
+              changed = current_version != previous_version
+
+          output = pathlib.Path(os.environ["GITHUB_OUTPUT"])
+          with output.open("a", encoding="utf-8") as fh:
+              fh.write(f"changed={'true' if changed else 'false'}\n")
+              fh.write(f"current_version={current_version}\n")
+              fh.write(f"previous_version={previous_version}\n")
+          PY
+
+      - name: Stop when version did not change
+        if: steps.version_check.outputs.changed != 'true'
+        run: |
+          echo "Starloom.csproj version did not change."
+
+      - name: Prepare Dalamud libraries
+        if: steps.version_check.outputs.changed == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/dalamud
+          curl -L --retry 3 --fail -o /tmp/dalamud.zip https://goatcorp.github.io/dalamud-distrib/latest.zip
+          python3 - <<'PY'
+          import zipfile
+          zipfile.ZipFile("/tmp/dalamud.zip").extractall("/tmp/dalamud")
+          PY
+
+      - name: Build plugin
+        if: steps.version_check.outputs.changed == 'true'
+        run: dotnet build Starloom.csproj -c Release -p:EnableWindowsTargeting=true -p:DalamudLibPath=/tmp/dalamud
+
+      - name: Prepare publish artifacts
+        if: steps.version_check.outputs.changed == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p repo/${PLUGIN_NAME}
+          cp Starloom.json repo/${PLUGIN_NAME}/${PLUGIN_NAME}.json
+          python3 - <<'PY'
+          import json
+          import os
+          import pathlib
+          import zipfile
+
+          plugin_name = os.environ["PLUGIN_NAME"]
+          source_dir = pathlib.Path("bin") / "Release"
+          target_zip = pathlib.Path("repo") / plugin_name / "latest.zip"
+
+          with zipfile.ZipFile(target_zip, "w", compression=zipfile.ZIP_DEFLATED) as archive:
+              for path in sorted(source_dir.rglob("*")):
+                  if path.is_file():
+                      archive.write(path, path.relative_to(source_dir).as_posix())
+          PY
+
+      - name: Update plugin metadata
+        if: steps.version_check.outputs.changed == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json
+          import os
+          import pathlib
+
+          plugin_name = os.environ["PLUGIN_NAME"]
+          version = os.environ["VERSION"]
+          publish_owner = os.environ["PUBLISH_OWNER"]
+          publish_repo = os.environ["PUBLISH_REPO"]
+          publish_branch = os.environ["PUBLISH_BRANCH"]
+
+          repo_root = pathlib.Path("repo")
+          plugin_json_path = repo_root / plugin_name / f"{plugin_name}.json"
+          plugin = json.loads(plugin_json_path.read_text(encoding="utf-8-sig"))
+
+          download_link = f"https://raw.githubusercontent.com/{publish_owner}/{publish_repo}/{publish_branch}/{plugin_name}/latest.zip"
+          plugin.update({
+              "AssemblyVersion": version,
+              "TestingAssemblyVersion": version,
+              "IsTestingExclusive": False,
+              "RepoUrl": "https://github.com/LienChan666/StarLoom",
+              "LoadRequiredState": 0,
+              "LoadSync": False,
+              "CanUnloadAsync": False,
+              "LoadPriority": 0,
+              "AcceptsFeedback": True,
+              "DownloadLinkInstall": download_link,
+              "DownloadLinkTesting": download_link,
+              "DownloadLinkUpdate": download_link,
+          })
+
+          plugin_json_path.write_text(
+              json.dumps(plugin, ensure_ascii=False, indent=2) + "\n",
+              encoding="utf-8",
+          )
+
+          pluginmaster_path = repo_root / "pluginmaster.json"
+          if pluginmaster_path.exists():
+              payload = json.loads(pluginmaster_path.read_text(encoding="utf-8"))
+          else:
+              payload = []
+
+          existing = next((entry for entry in payload if entry.get("InternalName") == plugin_name), None)
+          if existing is None:
+              payload.append(plugin)
+          else:
+              existing.clear()
+              existing.update(plugin)
+
+          payload.sort(key=lambda entry: entry.get("InternalName", ""))
+          pluginmaster_path.write_text(
+              json.dumps(payload, ensure_ascii=False, indent=2) + "\n",
+              encoding="utf-8",
+          )
+          PY
+        env:
+          VERSION: ${{ steps.version_check.outputs.current_version }}
+
+      - name: Validate metadata
+        if: steps.version_check.outputs.changed == 'true'
+        run: |
+          python3 -m json.tool repo/pluginmaster.json > /dev/null
+          python3 -m json.tool repo/${PLUGIN_NAME}/${PLUGIN_NAME}.json > /dev/null
+
+      - name: Checkout publish repository
+        if: steps.version_check.outputs.changed == 'true'
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ env.PUBLISH_OWNER }}/${{ env.PUBLISH_REPO }}
+          ref: ${{ env.PUBLISH_BRANCH }}
+          token: ${{ secrets.DALAMUD_PLUGINS_PAT }}
+          path: publish-repo
+
+      - name: Sync publish repository artifacts
+        if: steps.version_check.outputs.changed == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p publish-repo/${PLUGIN_NAME}
+          cp repo/pluginmaster.json publish-repo/pluginmaster.json
+          cp repo/${PLUGIN_NAME}/${PLUGIN_NAME}.json publish-repo/${PLUGIN_NAME}/${PLUGIN_NAME}.json
+          cp repo/${PLUGIN_NAME}/latest.zip publish-repo/${PLUGIN_NAME}/latest.zip
+
+      - name: Commit and push artifacts to publish repository
+        if: steps.version_check.outputs.changed == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd publish-repo
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add pluginmaster.json ${PLUGIN_NAME}/${PLUGIN_NAME}.json ${PLUGIN_NAME}/latest.zip
+          if git diff --cached --quiet; then
+            echo "No artifact changes detected."
+            exit 0
+          fi
+          git commit -m "chore: publish ${PLUGIN_NAME} artifacts [skip ci]"
+          git push origin HEAD:${PUBLISH_BRANCH}
