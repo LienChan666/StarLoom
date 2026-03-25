@@ -93,6 +93,8 @@ public sealed unsafe class ScripShopCatalogBuilder
                         ? new ScripCurrencyResolver.NormalizedCurrency(0, 0)
                         : ScripCurrencyResolver.NormalizeCurrency(rawCurrencyId, ResolveSpecialCurrencyItemId);
                     var currencyName = GetCurrencyName(itemSheet, normalizedCurrency.CurrencyItemId);
+                    var itemIconId = hasItem ? GetItemIconId(itemSheet, itemId) : 0u;
+                    var currencyIconId = GetItemIconId(itemSheet, normalizedCurrency.CurrencyItemId);
                     var discipline = ScripCurrencyResolver.ResolveDiscipline(normalizedCurrency.SpecialId, currencyName);
 
                     signatureBuilder
@@ -103,6 +105,8 @@ public sealed unsafe class ScripShopCatalogBuilder
                         .Append(':')
                         .Append(itemName)
                         .Append(':')
+                        .Append(itemIconId)
+                        .Append(':')
                         .Append(itemCost)
                         .Append(':')
                         .Append(rawCurrencyId)
@@ -112,6 +116,8 @@ public sealed unsafe class ScripShopCatalogBuilder
                         .Append(normalizedCurrency.SpecialId)
                         .Append(':')
                         .Append(currencyName)
+                        .Append(':')
+                        .Append(currencyIconId)
                         .Append(':')
                         .Append((int)discipline)
                         .Append(':')
@@ -190,11 +196,14 @@ public sealed unsafe class ScripShopCatalogBuilder
 
                     var normalizedCurrency = ScripCurrencyResolver.NormalizeCurrency(rawCurrencyId, ResolveSpecialCurrencyItemId);
                     var currencyName = GetCurrencyName(itemSheet, normalizedCurrency.CurrencyItemId);
+                    var itemIconId = item.Icon;
+                    var currencyIconId = GetItemIconId(itemSheet, normalizedCurrency.CurrencyItemId);
                     var discipline = ScripCurrencyResolver.ResolveDiscipline(normalizedCurrency.SpecialId, currencyName);
 
                     seriesCandidates.Add(new CatalogCandidate(
                         item.Name.ExtractText(),
                         itemId,
+                        itemIconId,
                         0,
                         itemCost,
                         page,
@@ -202,6 +211,7 @@ public sealed unsafe class ScripShopCatalogBuilder
                         normalizedCurrency.SpecialId,
                         normalizedCurrency.CurrencyItemId,
                         currencyName,
+                        currencyIconId,
                         discipline,
                         entry.PatchNumber,
                         entry.Order,
@@ -230,11 +240,13 @@ public sealed unsafe class ScripShopCatalogBuilder
                 ItemID = candidate.ItemId,
                 Index = candidate.DisplayIndex,
                 ItemCost = candidate.ItemCost,
+                ItemIconId = candidate.ItemIconId,
                 Page = candidate.Page,
                 SubPage = candidate.SubPage,
                 CurrencySpecialId = candidate.CurrencySpecialId,
                 CurrencyItemId = candidate.CurrencyItemId,
                 CurrencyName = candidate.CurrencyName,
+                CurrencyIconId = candidate.CurrencyIconId,
                 Discipline = candidate.Discipline,
                 TierRank = tierLookup.GetValueOrDefault(candidate.IdentityKey, 0),
             })
@@ -333,6 +345,15 @@ public sealed unsafe class ScripShopCatalogBuilder
         return item.RowId == 0 ? string.Empty : item.Name.ExtractText();
     }
 
+    private static uint GetItemIconId(ExcelSheet<Item> itemSheet, uint itemId)
+    {
+        if (itemId == 0)
+            return 0;
+
+        var item = itemSheet.GetRow(itemId);
+        return item.RowId == 0 ? 0u : item.Icon;
+    }
+
     private static Dictionary<CurrencyIdentityKey, int> BuildTierLookup(List<CatalogCandidate> candidates)
     {
         var result = new Dictionary<CurrencyIdentityKey, int>();
@@ -372,6 +393,7 @@ public sealed unsafe class ScripShopCatalogBuilder
     private sealed record CatalogCandidate(
         string Name,
         uint ItemId,
+        uint ItemIconId,
         int DisplayIndex,
         uint ItemCost,
         int Page,
@@ -379,6 +401,7 @@ public sealed unsafe class ScripShopCatalogBuilder
         byte CurrencySpecialId,
         uint CurrencyItemId,
         string CurrencyName,
+        uint CurrencyIconId,
         ScripDiscipline Discipline,
         ushort PatchNumber,
         byte SortOrder,

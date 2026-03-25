@@ -192,11 +192,13 @@ public sealed class ConfigurationEditor
            && string.Equals(left.Name, right.Name, StringComparison.Ordinal)
            && left.Index == right.Index
            && left.ItemCost == right.ItemCost
+           && left.ItemIconId == right.ItemIconId
            && left.Page == right.Page
            && left.SubPage == right.SubPage
            && left.CurrencySpecialId == right.CurrencySpecialId
            && left.CurrencyItemId == right.CurrencyItemId
            && string.Equals(left.CurrencyName, right.CurrencyName, StringComparison.Ordinal)
+           && left.CurrencyIconId == right.CurrencyIconId
            && left.Discipline == right.Discipline
            && left.TierRank == right.TierRank;
 
@@ -207,11 +209,13 @@ public sealed class ConfigurationEditor
             ItemID = item.ItemID,
             Index = item.Index,
             ItemCost = item.ItemCost,
+            ItemIconId = item.ItemIconId,
             Page = item.Page,
             SubPage = item.SubPage,
             CurrencySpecialId = item.CurrencySpecialId,
             CurrencyItemId = item.CurrencyItemId,
             CurrencyName = item.CurrencyName,
+            CurrencyIconId = item.CurrencyIconId,
             Discipline = item.Discipline,
             TierRank = item.TierRank,
         };

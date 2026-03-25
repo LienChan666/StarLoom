@@ -58,7 +58,7 @@ internal sealed class SelectedItemsPane
                 ImGui.TableNextRow();
 
                 ImGui.TableSetColumnIndex(0);
-                ImGui.TextUnformatted(item.Name);
+                ScripShopUiHelpers.DrawItemLabel(item.Item);
 
                 ImGui.TableSetColumnIndex(1);
                 ScripShopUiHelpers.DrawCurrencyLabel(item.Item);

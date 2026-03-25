@@ -22,12 +22,8 @@ internal sealed class SearchPane
             return;
         }
 
-        ImGui.TextUnformatted(P.Localization.Get("home.search.title"));
-        ImGui.Separator();
-        ImGui.TextUnformatted(P.Localization.Get("home.search.filter_label"));
-        ImGui.SameLine();
         ImGui.SetNextItemWidth(-1f);
-        ImGui.InputText("##ItemSearch", ref itemSearch, 128);
+        ImGui.InputTextWithHint("##ItemSearch", P.Localization.Get("home.search.input_hint"), ref itemSearch, 128);
 
         if (P.ShopItems.IsLoading)
         {
@@ -78,7 +74,7 @@ internal sealed class SearchPane
 
             ImGui.TableNextRow();
             ImGui.TableSetColumnIndex(0);
-            ImGui.TextUnformatted(item.Name);
+            ScripShopUiHelpers.DrawItemLabel(item);
 
             ImGui.TableSetColumnIndex(1);
             ScripShopUiHelpers.DrawCurrencyLabel(item);

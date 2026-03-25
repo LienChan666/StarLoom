@@ -160,7 +160,7 @@ internal sealed class WorkflowOrchestrator : IDisposable
             return;
         }
 
-        if (ShouldTakeOverForTurnInAndPurchase())
+        if (HasPendingCollectableTurnInWorkRemaining())
         {
             EnterTurnInAndPurchaseLoop();
             return;
@@ -210,9 +210,15 @@ internal sealed class WorkflowOrchestrator : IDisposable
         return P.PurchaseResolver.HasPending();
     }
 
+    private static bool HasPendingCollectableTurnInWorkRemaining()
+    {
+        return P.Inventory.HasCollectableTurnIns();
+    }
+
     private static bool ShouldFinalizeLoopAfterTurnInAndPurchase()
     {
-        return !HasPendingPurchaseWorkRemaining();
+        return !HasPendingCollectableTurnInWorkRemaining()
+            && !HasPendingPurchaseWorkRemaining();
     }
 
     private static bool ShouldFinalizeConfiguredWorkflow()

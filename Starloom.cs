@@ -1,4 +1,5 @@
 using Dalamud.Game.Command;
+using Dalamud.Interface.Textures;
 using Dalamud.Plugin;
 using ECommons;
 using ECommons.Automation.NeoTaskManager;
@@ -28,11 +29,14 @@ public sealed class Starloom : IDalamudPlugin
     internal ScripPurchaseService ScripPurchase;
     internal WorkflowOrchestrator Automation;
     internal PluginUi Ui;
+    internal ITextureProvider Textures;
 
     public Starloom(IDalamudPluginInterface pluginInterface)
     {
         ECommonsMain.Init(pluginInterface, this, Module.DalamudReflector);
         P = this;
+        Textures = pluginInterface.Create<DalamudTextureService>()?.Textures
+            ?? throw new System.InvalidOperationException("Failed to resolve Dalamud texture provider.");
 
         TM = new TaskManager();
         ConfigStore = new ConfigurationStore();

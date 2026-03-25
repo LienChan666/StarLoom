@@ -8,10 +8,10 @@
   </PropertyGroup>
 
   <PropertyGroup>
-    <DalamudLibPath Condition="'$(DalamudLibPath)' == '' and Exists('$(AppData)\XIVLauncherCN\addon\Hooks\dev\Dalamud.dll')">$(AppData)\XIVLauncherCN\addon\Hooks\dev\</DalamudLibPath>
-    <DalamudLibPath Condition="'$(DalamudLibPath)' == '' and Exists('$(AppData)\XIVLauncher\addon\Hooks\dev\Dalamud.dll')">$(AppData)\XIVLauncher\addon\Hooks\dev\</DalamudLibPath>
-    <DalamudDevPlugins Condition="'$(DalamudDevPlugins)' == '' and Exists('$(AppData)\XIVLauncherCN\addon\Hooks\dev\Dalamud.dll')">$(AppData)\XIVLauncherCN\devPlugins\Starloom\</DalamudDevPlugins>
-    <DalamudDevPlugins Condition="'$(DalamudDevPlugins)' == ''">$(AppData)\XIVLauncher\devPlugins\Starloom\</DalamudDevPlugins>
+    <WindowsAppDataPath Condition="'$(WindowsAppDataPath)' == '' and '$(AppData)' != ''">$(AppData)</WindowsAppDataPath>
+    <WindowsAppDataPath Condition="'$(WindowsAppDataPath)' == '' and '$(USER)' != ''">/mnt/c/Users/$(USER)/AppData/Roaming</WindowsAppDataPath>
+    <DalamudLibPath Condition="'$(DalamudLibPath)' == '' and Exists('$(WindowsAppDataPath)/XIVLauncherCN/addon/Hooks/dev/Dalamud.dll')">$(WindowsAppDataPath)/XIVLauncherCN/addon/Hooks/dev</DalamudLibPath>
+    <DalamudLibPath Condition="'$(DalamudLibPath)' == '' and Exists('$(WindowsAppDataPath)/XIVLauncher/addon/Hooks/dev/Dalamud.dll')">$(WindowsAppDataPath)/XIVLauncher/addon/Hooks/dev</DalamudLibPath>
     <AssemblyName>Starloom</AssemblyName>
     <RootNamespace>Starloom</RootNamespace>
     <PackageId>Starloom</PackageId>
@@ -55,49 +55,36 @@
     <PackageReference Include="DalamudPackager" Version="14.0.2" />
     <PackageReference Include="ECommons" Version="3.1.0.10" />
     <Reference Include="Dalamud">
-      <HintPath>$(DalamudLibPath)\Dalamud.dll</HintPath>
+      <HintPath>$(DalamudLibPath)/Dalamud.dll</HintPath>
       <Private>false</Private>
     </Reference>
     <Reference Include="Newtonsoft.Json">
-      <HintPath>$(DalamudLibPath)\Newtonsoft.Json.dll</HintPath>
+      <HintPath>$(DalamudLibPath)/Newtonsoft.Json.dll</HintPath>
       <Private>false</Private>
     </Reference>
     <Reference Include="FFXIVClientStructs">
-      <HintPath>$(DalamudLibPath)\FFXIVClientStructs.dll</HintPath>
+      <HintPath>$(DalamudLibPath)/FFXIVClientStructs.dll</HintPath>
       <Private>false</Private>
     </Reference>
     <Reference Include="Dalamud.Bindings.ImGui">
-      <HintPath>$(DalamudLibPath)\Dalamud.Bindings.ImGui.dll</HintPath>
+      <HintPath>$(DalamudLibPath)/Dalamud.Bindings.ImGui.dll</HintPath>
       <Private>false</Private>
     </Reference>
     <Reference Include="Lumina">
-      <HintPath>$(DalamudLibPath)\Lumina.dll</HintPath>
+      <HintPath>$(DalamudLibPath)/Lumina.dll</HintPath>
       <Private>false</Private>
     </Reference>
     <Reference Include="Lumina.Excel">
-      <HintPath>$(DalamudLibPath)\Lumina.Excel.dll</HintPath>
+      <HintPath>$(DalamudLibPath)/Lumina.Excel.dll</HintPath>
       <Private>false</Private>
     </Reference>
     <Reference Include="Dalamud.Common">
-      <HintPath>$(DalamudLibPath)\Dalamud.Common.dll</HintPath>
+      <HintPath>$(DalamudLibPath)/Dalamud.Common.dll</HintPath>
       <Private>false</Private>
     </Reference>
     <Reference Include="InteropGenerator.Runtime">
-      <HintPath>$(DalamudLibPath)\InteropGenerator.Runtime.dll</HintPath>
+      <HintPath>$(DalamudLibPath)/InteropGenerator.Runtime.dll</HintPath>
       <Private>false</Private>
     </Reference>
   </ItemGroup>
-
-  <Target Name="CopyDebugPluginToDalamudDevPlugins"
-          AfterTargets="Build"
-          Condition="'$(Configuration)' == 'Debug' and '$(DalamudDevPlugins)' != ''">
-    <ItemGroup>
-      <DalamudPluginOutput Include="$(OutputPath)**\*" />
-    </ItemGroup>
-
-    <MakeDir Directories="$(DalamudDevPlugins)" />
-    <Copy SourceFiles="@(DalamudPluginOutput)"
-          DestinationFiles="@(DalamudPluginOutput->'$(DalamudDevPlugins)%(RecursiveDir)%(Filename)%(Extension)')"
-          SkipUnchangedFiles="true" />
-  </Target>
 </Project>
