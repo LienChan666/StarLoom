@@ -1,7 +1,7 @@
 using ECommons.DalamudServices;
 using FFXIVClientStructs.FFXIV.Client.Game.UI;
 
-namespace StarLoom.Services;
+namespace Starloom.Services;
 
 public static unsafe class NativeTeleporter
 {

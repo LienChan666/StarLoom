@@ -1,7 +1,7 @@
 using System;
 using System.Collections.Generic;
 
-namespace StarLoom.Data;
+namespace Starloom.Data;
 
 public sealed class ScripShopCatalogCacheDocument
 {

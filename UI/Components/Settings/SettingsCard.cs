@@ -1,9 +1,9 @@
 using Dalamud.Bindings.ImGui;
-using StarLoom.UI.Components.Shared;
+using Starloom.UI.Components.Shared;
 using System;
 using System.Numerics;
 
-namespace StarLoom.UI.Components.Settings;
+namespace Starloom.UI.Components.Settings;
 
 internal static class SettingsCard
 {

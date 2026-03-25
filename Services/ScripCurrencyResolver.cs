@@ -1,9 +1,9 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using StarLoom.Data;
+using Starloom.Data;
 
-namespace StarLoom.Services;
+namespace Starloom.Services;
 
 public static class ScripCurrencyResolver
 {
@@ -35,10 +35,10 @@ public static class ScripCurrencyResolver
         {
             1 or 2 or 6 => ScripDiscipline.Crafting,
             3 or 4 or 7 => ScripDiscipline.Gathering,
-            _ when currencyName.Contains("巧手", StringComparison.OrdinalIgnoreCase)
+            _ when currencyName.Contains("Crafter", StringComparison.OrdinalIgnoreCase)
                 || currencyName.Contains("Crafters", StringComparison.OrdinalIgnoreCase)
                 => ScripDiscipline.Crafting,
-            _ when currencyName.Contains("大地", StringComparison.OrdinalIgnoreCase)
+            _ when currencyName.Contains("Gatherer", StringComparison.OrdinalIgnoreCase)
                 || currencyName.Contains("Gatherers", StringComparison.OrdinalIgnoreCase)
                 => ScripDiscipline.Gathering,
             _ => ScripDiscipline.Unknown,

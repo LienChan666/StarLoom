@@ -1,4 +1,4 @@
-namespace StarLoom.Data;
+namespace Starloom.Data;
 
 public sealed class HousingReturnPoint
 {
@@ -13,6 +13,6 @@ public sealed class HousingReturnPoint
         => new()
         {
             IsInn = true,
-            DisplayName = "旅馆",
+            DisplayName = "Inn",
         };
 }

@@ -1,14 +1,13 @@
 using Dalamud.Bindings.ImGui;
-using StarLoom.Data;
+using Starloom.Data;
 
-namespace StarLoom.UI.Components.Shared;
+namespace Starloom.UI.Components.Shared;
 
 internal static class ScripShopUiHelpers
 {
     internal static void DrawCurrencyLabel(ScripShopItem item)
     {
         ImGui.TextUnformatted(GetCurrencyLabel(item));
-
         if (!string.IsNullOrWhiteSpace(item.CurrencyName) && ImGui.IsItemHovered())
             ImGui.SetTooltip(item.CurrencyName);
     }
@@ -19,10 +18,10 @@ internal static class ScripShopUiHelpers
             return item.CurrencyName;
 
         if (item.Discipline == ScripDiscipline.Crafting)
-            return "巧手工票";
+            return P.Localization.Get("currency.crafting");
 
         return item.Discipline == ScripDiscipline.Gathering
-            ? "采集工票"
-            : "未知工票";
+            ? P.Localization.Get("currency.gathering")
+            : P.Localization.Get("currency.unknown");
     }
 }

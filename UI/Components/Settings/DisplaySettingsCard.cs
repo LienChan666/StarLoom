@@ -1,32 +1,54 @@
 using Dalamud.Bindings.ImGui;
-using StarLoom.UI.Components.Shared;
+using Starloom.UI.Components.Shared;
+using System;
 
-namespace StarLoom.UI.Components.Settings;
+namespace Starloom.UI.Components.Settings;
 
 internal sealed class DisplaySettingsCard
 {
-    private readonly Plugin _plugin;
-    private readonly PluginUi _pluginUi;
-
-    public DisplaySettingsCard(Plugin plugin, PluginUi pluginUi)
-    {
-        _plugin = plugin;
-        _pluginUi = pluginUi;
-    }
-
     public void Draw()
     {
         if (!GamePanelStyle.BeginSettingsTable("##DisplaySettingsTable"))
             return;
 
-        var showStatusOverlay = _plugin.Config.ShowStatusOverlay;
+        var showStatusOverlay = C.ShowStatusOverlay;
         ImGui.TableNextRow();
         ImGui.TableSetColumnIndex(0);
-        GamePanelStyle.DrawSettingLabel("状态悬浮窗");
+        GamePanelStyle.DrawSettingLabel(P.Localization.Get("settings.display.overlay"));
         ImGui.TableSetColumnIndex(1);
-        if (ImGui.Checkbox("显示悬浮窗", ref showStatusOverlay))
-            _pluginUi.SetStatusOverlayVisible(showStatusOverlay);
+        if (ImGui.Checkbox($"{P.Localization.Get("settings.display.overlay_toggle")}##DisplayOverlay", ref showStatusOverlay))
+        {
+            C.ShowStatusOverlay = showStatusOverlay;
+            P.ConfigStore.Save();
+        }
+
+        var uiLanguage = C.UiLanguage;
+        ImGui.TableNextRow();
+        ImGui.TableSetColumnIndex(0);
+        GamePanelStyle.DrawSettingLabel(P.Localization.Get("settings.display.language"));
+        ImGui.TableSetColumnIndex(1);
+        ImGui.SetNextItemWidth(Math.Min(160f, ImGui.GetContentRegionAvail().X));
+        if (ImGui.BeginCombo("##UiLanguage", P.Localization.Get($"settings.display.language.{uiLanguage}")))
+        {
+            DrawLanguageOption("zh");
+            DrawLanguageOption("en");
+            ImGui.EndCombo();
+        }
 
         ImGui.EndTable();
+    }
+
+    private static void DrawLanguageOption(string language)
+    {
+        var isSelected = string.Equals(C.UiLanguage, language, StringComparison.Ordinal);
+        if (ImGui.Selectable($"{P.Localization.Get($"settings.display.language.{language}")}##UiLanguage_{language}", isSelected))
+        {
+            C.UiLanguage = language;
+            P.Localization.Reload();
+            P.ConfigStore.Save();
+        }
+
+        if (isSelected)
+            ImGui.SetItemDefaultFocus();
     }
 }

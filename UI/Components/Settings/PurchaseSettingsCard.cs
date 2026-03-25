@@ -1,86 +1,80 @@
 using Dalamud.Bindings.ImGui;
-using StarLoom.Data;
-using StarLoom.UI.Components.Shared;
+using Starloom.Data;
+using Starloom.UI.Components.Shared;
 using System;
 
-namespace StarLoom.UI.Components.Settings;
+namespace Starloom.UI.Components.Settings;
 
 internal sealed class PurchaseSettingsCard
 {
-    private readonly Plugin _plugin;
-
-    public PurchaseSettingsCard(Plugin plugin)
-    {
-        _plugin = plugin;
-    }
-
     public void Draw()
     {
         if (!GamePanelStyle.BeginSettingsTable("##PurchaseSettingsTable"))
             return;
 
-        var buyAfterEachTurnIn = _plugin.Config.BuyAfterEachTurnIn;
+        var buyAfterEachTurnIn = C.BuyAfterEachTurnIn;
         ImGui.TableNextRow();
         ImGui.TableSetColumnIndex(0);
-        GamePanelStyle.DrawSettingLabel("自动购买");
+        GamePanelStyle.DrawSettingLabel(P.Localization.Get("settings.purchase.auto_buy"));
         ImGui.TableSetColumnIndex(1);
-        if (ImGui.Checkbox("提交后自动购买", ref buyAfterEachTurnIn))
+        if (ImGui.Checkbox($"{P.Localization.Get("settings.purchase.auto_buy_toggle")}##BuyAfterEachTurnIn", ref buyAfterEachTurnIn))
         {
-            _plugin.Config.BuyAfterEachTurnIn = buyAfterEachTurnIn;
-            _plugin.SaveConfig();
+            C.BuyAfterEachTurnIn = buyAfterEachTurnIn;
+            P.ConfigStore.Save();
         }
 
-        var postPurchaseAction = _plugin.Config.PostPurchaseAction;
-        var actionPreview = postPurchaseAction == PurchaseCompletionAction.CloseGame
-            ? "关闭游戏"
-            : "返回配置的返回点";
+        var postPurchaseAction = C.PostPurchaseAction;
+        var actionPreview = P.Localization.Get(postPurchaseAction == PurchaseCompletionAction.CloseGame
+            ? "settings.purchase.action.close_game"
+            : "settings.purchase.action.return_point");
+
         ImGui.TableNextRow();
         ImGui.TableSetColumnIndex(0);
-        GamePanelStyle.DrawSettingLabel("完成动作");
+        GamePanelStyle.DrawSettingLabel(P.Localization.Get("settings.purchase.action"));
         ImGui.TableSetColumnIndex(1);
         ImGui.SetNextItemWidth(Math.Min(220f, ImGui.GetContentRegionAvail().X));
         if (ImGui.BeginCombo("##PostPurchaseAction", actionPreview))
         {
-            if (ImGui.Selectable("返回配置的返回点", postPurchaseAction == PurchaseCompletionAction.ReturnToConfiguredPoint))
+            if (ImGui.Selectable($"{P.Localization.Get("settings.purchase.action.return_point")}##PostPurchaseReturnPoint", postPurchaseAction == PurchaseCompletionAction.ReturnToConfiguredPoint))
             {
-                _plugin.Config.PostPurchaseAction = PurchaseCompletionAction.ReturnToConfiguredPoint;
-                _plugin.SaveConfig();
+                C.PostPurchaseAction = PurchaseCompletionAction.ReturnToConfiguredPoint;
+                P.ConfigStore.Save();
             }
 
-            if (ImGui.Selectable("关闭游戏", postPurchaseAction == PurchaseCompletionAction.CloseGame))
+            if (ImGui.Selectable($"{P.Localization.Get("settings.purchase.action.close_game")}##PostPurchaseCloseGame", postPurchaseAction == PurchaseCompletionAction.CloseGame))
             {
-                _plugin.Config.PostPurchaseAction = PurchaseCompletionAction.CloseGame;
-                _plugin.SaveConfig();
+                C.PostPurchaseAction = PurchaseCompletionAction.CloseGame;
+                P.ConfigStore.Save();
             }
 
             ImGui.EndCombo();
         }
 
-        var reserveScripAmount = _plugin.Config.ReserveScripAmount;
+        var reserveScripAmount = C.ReserveScripAmount;
         var previousReserveScripAmount = reserveScripAmount;
         ImGui.TableNextRow();
         ImGui.TableSetColumnIndex(0);
-        GamePanelStyle.DrawSettingLabel("工票预留");
+        GamePanelStyle.DrawSettingLabel(P.Localization.Get("settings.purchase.reserve"));
         ImGui.TableSetColumnIndex(1);
         ImGui.SetNextItemWidth(Math.Min(160f, ImGui.GetContentRegionAvail().X));
         if (ImGui.InputInt("##ReserveScripAmount", ref reserveScripAmount, 0, 0))
-            _plugin.Config.ReserveScripAmount = Math.Max(0, reserveScripAmount);
+            C.ReserveScripAmount = Math.Max(0, reserveScripAmount);
 
-        if (ImGui.IsItemDeactivatedAfterEdit() && _plugin.Config.ReserveScripAmount != previousReserveScripAmount)
-            _plugin.SaveConfig();
+        if (ImGui.IsItemDeactivatedAfterEdit() && C.ReserveScripAmount != previousReserveScripAmount)
+            P.ConfigStore.Save();
 
-        var freeSlotThreshold = _plugin.Config.FreeSlotThreshold;
+        var freeSlotThreshold = C.FreeSlotThreshold;
         var previousFreeSlotThreshold = freeSlotThreshold;
         ImGui.TableNextRow();
         ImGui.TableSetColumnIndex(0);
-        GamePanelStyle.DrawSettingLabel("背包保护");
+        GamePanelStyle.DrawSettingLabel(P.Localization.Get("settings.purchase.free_slots"));
         ImGui.TableSetColumnIndex(1);
         ImGui.SetNextItemWidth(Math.Min(160f, ImGui.GetContentRegionAvail().X));
         if (ImGui.InputInt("##FreeSlotThreshold", ref freeSlotThreshold, 0, 0))
-            _plugin.Config.FreeSlotThreshold = Math.Max(0, freeSlotThreshold);
+            C.FreeSlotThreshold = Math.Max(0, freeSlotThreshold);
 
-        if (ImGui.IsItemDeactivatedAfterEdit() && _plugin.Config.FreeSlotThreshold != previousFreeSlotThreshold)
-            _plugin.SaveConfig();
+        if (ImGui.IsItemDeactivatedAfterEdit() && C.FreeSlotThreshold != previousFreeSlotThreshold)
+            P.ConfigStore.Save();
 
         ImGui.EndTable();
     }

@@ -1,9 +1,9 @@
 using Dalamud.Configuration;
-using StarLoom.Data;
+using Starloom.Data;
 using System;
 using System.Collections.Generic;
 
-namespace StarLoom;
+namespace Starloom;
 
 [Serializable]
 public class Configuration : IPluginConfiguration
@@ -16,6 +16,7 @@ public class Configuration : IPluginConfiguration
     public bool BuyAfterEachTurnIn { get; set; }
     public PurchaseCompletionAction PostPurchaseAction { get; set; } = PurchaseCompletionAction.ReturnToConfiguredPoint;
     public bool ShowStatusOverlay { get; set; }
+    public string UiLanguage { get; set; } = "zh";
     public int ReserveScripAmount { get; set; }
     public List<ItemToPurchase> ScripShopItems { get; set; } = [];
     public int FreeSlotThreshold { get; set; } = 10;

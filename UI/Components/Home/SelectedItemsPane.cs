@@ -1,30 +1,25 @@
 using Dalamud.Bindings.ImGui;
-using StarLoom.UI.Components.Shared;
+using Starloom.UI.Components.Shared;
 using System;
 using System.Linq;
 using System.Numerics;
 
-namespace StarLoom.UI.Components.Home;
+namespace Starloom.UI.Components.Home;
 
 internal sealed class SelectedItemsPane
 {
-    private readonly Plugin _plugin;
-
-    public SelectedItemsPane(Plugin plugin)
-    {
-        _plugin = plugin;
-    }
-
     public void Draw(Vector2 size)
     {
         using var _ = GamePanelStyle.BeginPanel("##SelectedPane", size, GamePanelStyle.BorderSubtle);
 
-        var totalQuantity = _plugin.Config.ScripShopItems.Sum(item => item.Quantity);
-        GamePanelStyle.DrawPanelHeader("已选兑换列表", $"共 {_plugin.Config.ScripShopItems.Count} 项，目标数量合计 {totalQuantity}。");
+        var totalQuantity = C.ScripShopItems.Sum(item => item.Quantity);
+        GamePanelStyle.DrawPanelHeader(
+            P.Localization.Get("home.selected.title"),
+            P.Localization.Format("home.selected.description", C.ScripShopItems.Count, totalQuantity));
 
-        if (_plugin.Config.ScripShopItems.Count == 0)
+        if (C.ScripShopItems.Count == 0)
         {
-            GamePanelStyle.DrawHint("当前还没有配置任何兑换物品，请先从上方搜索并加入队列。");
+            GamePanelStyle.DrawHint(P.Localization.Get("home.selected.empty_hint"));
             return;
         }
 
@@ -41,17 +36,17 @@ internal sealed class SelectedItemsPane
 
         if (ImGui.BeginTable("##SelectedTable", 6, tableFlags))
         {
-            ImGui.TableSetupColumn("名称", ImGuiTableColumnFlags.WidthStretch, 0.34f);
-            ImGui.TableSetupColumn("工票", ImGuiTableColumnFlags.WidthStretch, 0.18f);
-            ImGui.TableSetupColumn("单价", ImGuiTableColumnFlags.WidthFixed, 60f);
-            ImGui.TableSetupColumn("目标数量", ImGuiTableColumnFlags.WidthFixed, 100f);
-            ImGui.TableSetupColumn("排序", ImGuiTableColumnFlags.WidthFixed, 78f);
-            ImGui.TableSetupColumn("操作", ImGuiTableColumnFlags.WidthFixed, 64f);
+            ImGui.TableSetupColumn(P.Localization.Get("home.selected.table.name"), ImGuiTableColumnFlags.WidthStretch, 0.34f);
+            ImGui.TableSetupColumn(P.Localization.Get("home.selected.table.currency"), ImGuiTableColumnFlags.WidthStretch, 0.18f);
+            ImGui.TableSetupColumn(P.Localization.Get("home.selected.table.cost"), ImGuiTableColumnFlags.WidthFixed, 60f);
+            ImGui.TableSetupColumn(P.Localization.Get("home.selected.table.quantity"), ImGuiTableColumnFlags.WidthFixed, 100f);
+            ImGui.TableSetupColumn(P.Localization.Get("home.selected.table.order"), ImGuiTableColumnFlags.WidthFixed, 78f);
+            ImGui.TableSetupColumn(P.Localization.Get("home.selected.table.action"), ImGuiTableColumnFlags.WidthFixed, 64f);
             ImGui.TableHeadersRow();
 
-            for (var index = 0; index < _plugin.Config.ScripShopItems.Count; index++)
+            for (var index = 0; index < C.ScripShopItems.Count; index++)
             {
-                var item = _plugin.Config.ScripShopItems[index];
+                var item = C.ScripShopItems[index];
                 ImGui.PushID((int)item.Item.ItemId);
 
                 ImGui.TableNextRow();
@@ -72,18 +67,18 @@ internal sealed class SelectedItemsPane
                     item.Quantity = Math.Max(1, quantity);
 
                 if (ImGui.IsItemDeactivatedAfterEdit())
-                    _plugin.SaveConfig();
+                    P.ConfigStore.Save();
 
                 ImGui.TableSetColumnIndex(4);
                 ImGui.PushStyleColor(ImGuiCol.Text, GamePanelStyle.TextSecond);
                 ImGui.BeginDisabled(index == 0);
-                if (ImGui.SmallButton("\u2191"))
+                if (ImGui.SmallButton("↑##MoveUp"))
                     moveUpIndex = index;
                 ImGui.EndDisabled();
 
                 ImGui.SameLine();
-                ImGui.BeginDisabled(index == _plugin.Config.ScripShopItems.Count - 1);
-                if (ImGui.SmallButton("\u2193"))
+                ImGui.BeginDisabled(index == C.ScripShopItems.Count - 1);
+                if (ImGui.SmallButton("↓##MoveDown"))
                     moveDownIndex = index;
                 ImGui.EndDisabled();
                 ImGui.PopStyleColor();
@@ -92,7 +87,7 @@ internal sealed class SelectedItemsPane
                 ImGui.PushStyleColor(ImGuiCol.Button, GamePanelStyle.Tint(GamePanelStyle.Danger, 0.3f));
                 ImGui.PushStyleColor(ImGuiCol.ButtonHovered, GamePanelStyle.Tint(GamePanelStyle.Danger, 0.5f));
                 ImGui.PushStyleColor(ImGuiCol.ButtonActive, GamePanelStyle.Tint(GamePanelStyle.Danger, 0.7f));
-                if (ImGui.SmallButton("\u00d7"))
+                if (ImGui.SmallButton("×##Remove"))
                     removeIndex = index;
                 ImGui.PopStyleColor(3);
 
@@ -106,26 +101,26 @@ internal sealed class SelectedItemsPane
 
         if (removeIndex.HasValue)
         {
-            _plugin.Config.ScripShopItems.RemoveAt(removeIndex.Value);
-            _plugin.SaveConfig();
+            C.ScripShopItems.RemoveAt(removeIndex.Value);
+            P.ConfigStore.Save();
         }
 
         if (moveUpIndex.HasValue)
         {
             SwapItems(moveUpIndex.Value, moveUpIndex.Value - 1);
-            _plugin.SaveConfig();
+            P.ConfigStore.Save();
         }
 
         if (moveDownIndex.HasValue)
         {
             SwapItems(moveDownIndex.Value, moveDownIndex.Value + 1);
-            _plugin.SaveConfig();
+            P.ConfigStore.Save();
         }
     }
 
-    private void SwapItems(int firstIndex, int secondIndex)
+    private static void SwapItems(int firstIndex, int secondIndex)
     {
-        var list = _plugin.Config.ScripShopItems;
+        var list = C.ScripShopItems;
         (list[firstIndex], list[secondIndex]) = (list[secondIndex], list[firstIndex]);
     }
 }

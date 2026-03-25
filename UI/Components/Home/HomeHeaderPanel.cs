@@ -1,18 +1,12 @@
 using Dalamud.Bindings.ImGui;
-using StarLoom.UI.Components.Shared;
+using Starloom.Automation;
+using Starloom.UI.Components.Shared;
 using System.Numerics;
 
-namespace StarLoom.UI.Components.Home;
+namespace Starloom.UI.Components.Home;
 
 internal sealed class HomeHeaderPanel
 {
-    private readonly Plugin _plugin;
-
-    public HomeHeaderPanel(Plugin plugin)
-    {
-        _plugin = plugin;
-    }
-
     public void Draw(Vector2 size)
     {
         using var _ = GamePanelStyle.BeginPanel("##HomeHeaderPanel", size, GamePanelStyle.BorderAccent, GamePanelStyle.Accent);
@@ -31,25 +25,28 @@ internal sealed class HomeHeaderPanel
         ImGui.EndTable();
     }
 
-    private void DrawSummary()
+    private static void DrawSummary()
     {
         ImGui.SetWindowFontScale(1.3f);
         ImGui.PushStyleColor(ImGuiCol.Text, GamePanelStyle.Accent);
-        ImGui.TextUnformatted("Starloom");
+        ImGui.TextUnformatted(P.Localization.Get("home.header.title"));
         ImGui.PopStyleColor();
         ImGui.SetWindowFontScale(1.0f);
 
-        ImGui.TextUnformatted("收藏品提交 / 工票兑换控制台");
-        GamePanelStyle.DrawHint("把流程控制、运行状态与兑换队列聚合到一套更接近 FF14 插件的深色工具面板中。");
+        ImGui.TextUnformatted(P.Localization.Get("home.header.subtitle"));
+        GamePanelStyle.DrawHint(P.Localization.Get("home.header.hint"));
     }
 
-    private void DrawBadges()
+    private static void DrawBadges()
     {
-        var stateColor = _plugin.IsAutomationBusy ? GamePanelStyle.Gold : GamePanelStyle.Success;
-        GamePanelStyle.DrawPillBadge($"调度器 · {_plugin.GetOrchestratorStateText()}", stateColor);
+        var stateColor = P.Automation.IsBusy ? GamePanelStyle.Gold : GamePanelStyle.Success;
+        GamePanelStyle.DrawPillBadge(P.Localization.Format("home.header.badge.total_state", GetOrchestratorStateText()), stateColor);
         ImGui.SameLine(0f, GamePanelStyle.Spacing.Sm);
-        GamePanelStyle.DrawPillBadge($"当前任务 · {_plugin.GetCurrentJobDisplayName()}", GamePanelStyle.Accent);
-        ImGui.SameLine(0f, GamePanelStyle.Spacing.Sm);
-        GamePanelStyle.DrawPillBadge($"当前清单 · {_plugin.Config.ArtisanListId}", GamePanelStyle.AccentSoft);
+        GamePanelStyle.DrawPillBadge(P.Localization.Format("home.header.badge.current_list", C.ArtisanListId), GamePanelStyle.AccentSoft);
+    }
+
+    private static string GetOrchestratorStateText()
+    {
+        return P.Localization.Get(P.Automation.GetStateKey());
     }
 }

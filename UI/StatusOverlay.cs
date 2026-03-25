@@ -1,25 +1,21 @@
 using Dalamud.Bindings.ImGui;
 using Dalamud.Interface.Windowing;
-using StarLoom.UI.Components.Shared;
+using Starloom.Automation;
+using Starloom.UI.Components.Shared;
 using System.Numerics;
 
-namespace StarLoom.UI;
+namespace Starloom.UI;
 
 public sealed class StatusOverlay : Window
 {
-    private readonly Plugin _plugin;
-
-    public StatusOverlay(Plugin plugin)
-        : base("Starloom 状态##StarloomStatusOverlay")
+    public StatusOverlay() : base("Starloom##StarloomStatusOverlay")
     {
-        _plugin = plugin;
         Flags = ImGuiWindowFlags.AlwaysAutoResize | ImGuiWindowFlags.NoCollapse;
     }
 
     public override void PreDraw()
     {
         ImGui.SetNextWindowSize(new Vector2(320, 0), ImGuiCond.FirstUseEver);
-
         ImGui.PushStyleColor(ImGuiCol.WindowBg, GamePanelStyle.Layer1);
         ImGui.PushStyleColor(ImGuiCol.Border, GamePanelStyle.BorderAccent);
         ImGui.PushStyleVar(ImGuiStyleVar.WindowRounding, 8f);
@@ -35,25 +31,24 @@ public sealed class StatusOverlay : Window
 
     public override void Draw()
     {
-        var statusColor = _plugin.IsAutomationBusy ? GamePanelStyle.Gold : GamePanelStyle.Success;
+        var statusColor = P.Automation.IsBusy ? GamePanelStyle.Gold : GamePanelStyle.Success;
         GamePanelStyle.DrawStatusDot(statusColor);
         ImGui.PushStyleColor(ImGuiCol.Text, GamePanelStyle.TextPrimary);
-        ImGui.Text($"状态：{_plugin.GetOrchestratorStateText()}");
-        ImGui.PopStyleColor();
 
-        ImGui.PushStyleColor(ImGuiCol.Text, GamePanelStyle.TextSecond);
-        ImGui.Text($"任务：{_plugin.GetCurrentJobDisplayName()}");
-        ImGui.PopStyleColor();
-
-        ImGui.PushStyleColor(ImGuiCol.Text, GamePanelStyle.TextSecond);
-        ImGui.TextWrapped($"进度：{_plugin.GetCurrentStatusText()}");
+        var stateText = GetOrchestratorStateText();
+        ImGui.Text(P.Localization.Format("overlay.total_state", stateText));
         ImGui.PopStyleColor();
 
         GamePanelStyle.DrawGradientSeparator();
 
-        ImGui.BeginDisabled(!_plugin.IsAutomationBusy);
-        if (GamePanelStyle.DrawActionButton("停止", GamePanelStyle.Danger, 120f, _plugin.IsAutomationBusy, "■"))
-            _plugin.StopAutomation();
+        ImGui.BeginDisabled(!P.Automation.IsBusy);
+        if (GamePanelStyle.DrawActionButton("overlay.stop", P.Localization.Get("common.stop"), GamePanelStyle.Danger, 120f, P.Automation.IsBusy, "■"))
+            P.Automation.Stop();
         ImGui.EndDisabled();
+    }
+
+    private static string GetOrchestratorStateText()
+    {
+        return P.Localization.Get(P.Automation.GetStateKey());
     }
 }
