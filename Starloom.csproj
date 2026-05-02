@@ -43,8 +43,8 @@
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="DalamudPackager" Version="14.0.2" />
-    <PackageReference Include="ECommons" Version="3.1.0.10" />
+    <PackageReference Include="DalamudPackager" Version="15.0.0" />
+    <PackageReference Include="ECommons" Version="3.2.0.11" />
     <Reference Include="Dalamud">
       <HintPath>$(DalamudLibPath)/Dalamud.dll</HintPath>
       <Private>false</Private>

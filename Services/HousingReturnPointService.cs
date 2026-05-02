@@ -20,6 +20,7 @@ public static unsafe class HousingReturnPointService
     private const uint HouseEntranceDataId = 2002737;
     private const uint ApartmentEntranceDataId = 2007402;
     private static readonly HashSet<uint> ResidentialTerritories = [339, 340, 341, 641, 979];
+    private static readonly HashSet<uint> InnTerritories = Inns.List.Select(territoryId => (uint)territoryId).ToHashSet();
 
     public static List<HousingReturnPoint> GetAvailableReturnPoints()
     {
@@ -131,7 +132,7 @@ public static unsafe class HousingReturnPointService
     }
 
     public static bool IsInsideInn()
-        => Inns.List.Contains(Svc.ClientState.TerritoryType);
+        => InnTerritories.Contains(Svc.ClientState.TerritoryType);
 
     public static bool TryGetHousingEntrance(Vector3 origin, bool isApartment, out IGameObject? entrance)
     {

@@ -4,7 +4,7 @@ using Starloom.Data;
 using System.Collections.Generic;
 using System.Linq;
 using static ECommons.GenericHelpers;
-using ValueType = FFXIVClientStructs.FFXIV.Component.GUI.ValueType;
+using ValueType = FFXIVClientStructs.FFXIV.Component.GUI.AtkValueType;
 
 namespace Starloom.GameInterop.Addons;
 

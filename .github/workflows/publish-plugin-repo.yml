@@ -18,6 +18,7 @@ jobs:
     runs-on: ubuntu-latest
     env:
       PLUGIN_NAME: Starloom
+      DALAMUD_API_LEVEL: "15"
       PUBLISH_OWNER: LienChan666
       PUBLISH_REPO: DalamudPlugins
       PUBLISH_BRANCH: master
@@ -94,7 +95,7 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p /tmp/dalamud
-          curl -L --retry 3 --fail -o /tmp/dalamud.zip https://goatcorp.github.io/dalamud-distrib/latest.zip
+          curl -L --retry 3 --fail -o /tmp/dalamud.zip "https://goatcorp.github.io/dalamud-distrib/api${DALAMUD_API_LEVEL}/latest.zip"
           python3 - <<'PY'
           import zipfile
           zipfile.ZipFile("/tmp/dalamud.zip").extractall("/tmp/dalamud")
@@ -146,6 +147,9 @@ jobs:
           repo_root = pathlib.Path("repo")
           plugin_json_path = repo_root / plugin_name / f"{plugin_name}.json"
           plugin = json.loads(plugin_json_path.read_text(encoding="utf-8-sig"))
+          api_level = int(os.environ["DALAMUD_API_LEVEL"])
+          if plugin.get("DalamudApiLevel") != api_level:
+              raise SystemExit(f"DalamudApiLevel must be {api_level}")
 
           download_link = f"https://raw.githubusercontent.com/{publish_owner}/{publish_repo}/{publish_branch}/{plugin_name}/latest.zip"
           plugin.update({
