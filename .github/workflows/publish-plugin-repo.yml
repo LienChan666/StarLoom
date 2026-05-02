@@ -34,17 +34,24 @@ jobs:
         with:
           dotnet-version: 10.0.x
 
-      - name: Check version change
+      - name: Check publish inputs
         id: version_check
         shell: bash
         run: |
           set -euo pipefail
           python3 - <<'PY'
+          import hashlib
           import json
           import os
           import pathlib
           import re
           import subprocess
+
+          PUBLISH_INPUTS = [
+              "Starloom.csproj",
+              "Starloom.json",
+              ".github/workflows/publish-plugin-repo.yml",
+          ]
 
           def read_version(text: str) -> str:
               match = re.search(r"<Version>([^<]+)</Version>", text)
@@ -52,13 +59,28 @@ jobs:
                   raise SystemExit("Version not found in Starloom.csproj")
               return match.group(1).strip()
 
+          def read_at(ref: str, path: str) -> str:
+              return subprocess.check_output(["git", "show", f"{ref}:{path}"], text=True)
+
+          def fingerprint(ref: str | None = None) -> str:
+              digest = hashlib.sha256()
+              for path in PUBLISH_INPUTS:
+                  digest.update(path.encode("utf-8"))
+                  digest.update(b"\0")
+                  text = pathlib.Path(path).read_text(encoding="utf-8-sig") if ref is None else read_at(ref, path)
+                  digest.update(text.replace("\r\n", "\n").encode("utf-8"))
+                  digest.update(b"\0")
+              return digest.hexdigest()
+
           csproj_path = pathlib.Path("Starloom.csproj")
           current_text = csproj_path.read_text(encoding="utf-8")
           current_version = read_version(current_text)
+          current_fingerprint = fingerprint()
 
           event_name = os.environ["GITHUB_EVENT_NAME"]
           changed = event_name == "workflow_dispatch"
           previous_version = ""
+          previous_fingerprint = ""
 
           if not changed:
               event_path = os.environ.get("GITHUB_EVENT_PATH", "")
@@ -68,26 +90,27 @@ jobs:
                   before = payload.get("before", "")
               if before and before != "0000000000000000000000000000000000000000":
                   try:
-                      previous_text = subprocess.check_output(
-                          ["git", "show", f"{before}:Starloom.csproj"],
-                          text=True,
-                      )
+                      previous_text = read_at(before, "Starloom.csproj")
                       previous_version = read_version(previous_text)
+                      previous_fingerprint = fingerprint(before)
                   except subprocess.CalledProcessError:
                       previous_version = ""
-              changed = current_version != previous_version
+                      previous_fingerprint = ""
+              changed = current_fingerprint != previous_fingerprint
 
           output = pathlib.Path(os.environ["GITHUB_OUTPUT"])
           with output.open("a", encoding="utf-8") as fh:
               fh.write(f"changed={'true' if changed else 'false'}\n")
               fh.write(f"current_version={current_version}\n")
               fh.write(f"previous_version={previous_version}\n")
+              fh.write(f"current_fingerprint={current_fingerprint}\n")
+              fh.write(f"previous_fingerprint={previous_fingerprint}\n")
           PY
 
-      - name: Stop when version did not change
+      - name: Stop when publish inputs did not change
         if: steps.version_check.outputs.changed != 'true'
         run: |
-          echo "Starloom.csproj version did not change."
+          echo "Publish inputs did not change."
 
       - name: Prepare Dalamud libraries
         if: steps.version_check.outputs.changed == 'true'
